@@ -36,7 +36,7 @@ A lightweight, self-hosted network monitoring application for tracking the avail
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/network-checker.git
+git clone https://github.com/fatcat/network-checker.git
 cd network-checker
 
 # Start with Docker Compose
