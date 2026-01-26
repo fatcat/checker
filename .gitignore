@@ -1,0 +1,23 @@
+# Log files
+log/*.log*
+!log/.gitkeep
+
+# Database
+*.sqlite3
+*.db
+
+# Ruby
+*.gem
+*.rbc
+.bundle
+vendor/bundle
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

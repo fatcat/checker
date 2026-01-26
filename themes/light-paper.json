@@ -1,0 +1,20 @@
+{
+  "id": "light-paper",
+  "name": "Paper",
+  "type": "light",
+  "description": "Classic paper-like appearance with high contrast",
+  "colors": {
+    "background": "#f8f8f8",
+    "surface": "#ffffff",
+    "surface-hover": "#f0f0f0",
+    "border": "#cccccc",
+    "text": "#000000",
+    "text-muted": "#555555",
+    "accent": "#0066cc",
+    "accent-hover": "#0052a3",
+    "success": "#28a745",
+    "warning": "#ffc107",
+    "danger": "#dc3545",
+    "info": "#17a2b8"
+  }
+}

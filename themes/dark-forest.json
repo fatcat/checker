@@ -1,0 +1,20 @@
+{
+  "id": "dark-forest",
+  "name": "Dark Forest",
+  "type": "dark",
+  "description": "Earthy greens and browns like a forest at night",
+  "colors": {
+    "background": "#0d1512",
+    "surface": "#1a2820",
+    "surface-hover": "#243830",
+    "border": "#2f4538",
+    "text": "#d4e5db",
+    "text-muted": "#7fa88a",
+    "accent": "#4ade80",
+    "accent-hover": "#3cc970",
+    "success": "#4ade80",
+    "warning": "#fbbf24",
+    "danger": "#ef4444",
+    "info": "#38bdf8"
+  }
+}

@@ -1,0 +1,418 @@
+<div class="host-detail">
+  <div class="page-header">
+    <div class="breadcrumb">
+      <a href="/">Dashboard</a> / <a href="/hosts">Hosts</a> / <span><%= @host.name %></span>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-secondary" onclick="HostDetail.runTest()">Test Now</button>
+      <a href="/hosts" class="btn btn-secondary">Back to Hosts</a>
+    </div>
+  </div>
+
+  <div class="host-info-card">
+    <div class="host-info-header">
+      <h1><%= @host.name %></h1>
+      <span id="current-status" class="status-badge">Loading...</span>
+    </div>
+    <div class="host-info-details">
+      <div class="detail-item">
+        <span class="detail-label">Address</span>
+        <span class="detail-value"><%= @host.address %><%= @host.port ? ":#{@host.port}" : '' %></span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Test Type</span>
+        <span class="detail-value"><%= @host.test_type.upcase %></span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-label">Status</span>
+        <span class="detail-value"><%= @host.enabled ? 'Enabled' : 'Disabled' %></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card">
+      <span class="stat-value" id="stat-uptime">--</span>
+      <span class="stat-label">Uptime</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" id="stat-avg-latency">--</span>
+      <span class="stat-label">Avg Latency</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" id="stat-min-latency">--</span>
+      <span class="stat-label">Min Latency</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" id="stat-max-latency">--</span>
+      <span class="stat-label">Max Latency</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" id="stat-avg-jitter">--</span>
+      <span class="stat-label">Avg Jitter</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value" id="stat-tests">--</span>
+      <span class="stat-label">Total Tests</span>
+    </div>
+  </div>
+
+  <section class="charts">
+    <div class="charts-header">
+      <h2>Performance History</h2>
+      <div class="chart-controls">
+        <select id="time-range">
+          <option value="1h">Last Hour</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="24h" selected>Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <h3>Latency</h3>
+      <div id="latency-chart" class="chart"></div>
+    </div>
+
+    <div class="chart-container mt-2">
+      <h3>Jitter (IPDV)</h3>
+      <div id="jitter-chart" class="chart"></div>
+    </div>
+  </section>
+
+  <section class="recent-tests">
+    <h2>Recent Tests</h2>
+    <table class="table" id="recent-tests-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Latency</th>
+          <th>Jitter</th>
+          <th>HTTP Status</th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody id="recent-tests-tbody">
+        <tr><td colspan="6" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<style>
+.host-detail .breadcrumb {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.host-detail .breadcrumb a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.host-detail .breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.page-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.host-info-card {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.host-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.host-info-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.host-info-details {
+  display: flex;
+  gap: 3rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 1rem;
+  font-family: monospace;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recent-tests {
+  margin-top: 2rem;
+}
+
+.recent-tests h2 {
+  margin-bottom: 1rem;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+}
+
+.chart-container {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  color: var(--color-danger, #dc3545);
+  font-size: 0.875rem;
+  max-width: 300px;
+  word-break: break-word;
+}
+</style>
+
+<script>
+const HostDetail = {
+  hostId: <%= @host.id %>,
+  charts: {},
+
+  getChartThemeMode() {
+    const theme = document.body.getAttribute('data-theme') || 'dark-default';
+    return theme.startsWith('light-') ? 'light' : 'dark';
+  },
+
+  init() {
+    this.bindEvents();
+    this.loadStats();
+    this.loadCharts();
+    this.loadRecentTests();
+    this.loadCurrentStatus();
+  },
+
+  bindEvents() {
+    document.getElementById('time-range').addEventListener('change', () => {
+      this.loadStats();
+      this.loadCharts();
+      this.loadRecentTests();
+    });
+  },
+
+  async loadCurrentStatus() {
+    try {
+      const response = await fetch(`/api/hosts/${this.hostId}`);
+      const host = await response.json();
+
+      // Get latest measurement
+      const statusResponse = await fetch('/api/hosts/status');
+      const statusData = await statusResponse.json();
+      const hostStatus = statusData.hosts.find(h => h.id === this.hostId);
+
+      const statusEl = document.getElementById('current-status');
+      if (hostStatus) {
+        statusEl.className = `status-badge ${hostStatus.reachable ? 'up' : 'down'}`;
+        statusEl.textContent = hostStatus.reachable ? 'UP' : 'DOWN';
+      }
+    } catch (error) {
+      console.error('Failed to load status:', error);
+    }
+  },
+
+  async loadStats() {
+    const range = document.getElementById('time-range').value;
+    try {
+      const response = await fetch(`/api/hosts/${this.hostId}/stats?range=${range}`);
+      const stats = await response.json();
+
+      document.getElementById('stat-uptime').textContent = stats.uptime_percent !== null ? `${stats.uptime_percent}%` : '--';
+      document.getElementById('stat-avg-latency').textContent = stats.avg_latency !== null ? `${stats.avg_latency} ms` : '--';
+      document.getElementById('stat-min-latency').textContent = stats.min_latency !== null ? `${stats.min_latency} ms` : '--';
+      document.getElementById('stat-max-latency').textContent = stats.max_latency !== null ? `${stats.max_latency} ms` : '--';
+      document.getElementById('stat-avg-jitter').textContent = stats.avg_jitter !== null ? `${stats.avg_jitter} ms` : '--';
+      document.getElementById('stat-tests').textContent = stats.total_tests || '--';
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  },
+
+  async loadCharts() {
+    const range = document.getElementById('time-range').value;
+    await Promise.all([
+      this.loadLatencyChart(range),
+      this.loadJitterChart(range)
+    ]);
+  },
+
+  async loadLatencyChart(range) {
+    const container = document.getElementById('latency-chart');
+    try {
+      const response = await fetch(`/api/measurements/host/${this.hostId}?range=${range}`);
+      const data = await response.json();
+
+      const series = [{
+        name: 'Latency',
+        data: data.measurements.map(m => [new Date(m.tested_at).getTime(), m.latency_ms])
+      }];
+
+      const options = {
+        chart: { type: 'line', height: 250, background: 'transparent', toolbar: { show: true } },
+        theme: { mode: this.getChartThemeMode() },
+        series: series,
+        xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
+        yaxis: { title: { text: 'Latency (ms)' }, min: 0 },
+        stroke: { curve: 'smooth', width: 2 },
+        colors: ['#00bf63'],
+        legend: { show: true, showForSingleSeries: true, position: 'bottom', horizontalAlign: 'center' },
+        noData: { text: 'No data available', style: { color: '#a0a0a0' } }
+      };
+
+      container.innerHTML = '';
+      if (this.charts.latency) this.charts.latency.destroy();
+      this.charts.latency = new ApexCharts(container, options);
+      this.charts.latency.render();
+    } catch (error) {
+      console.error('Failed to load latency chart:', error);
+    }
+  },
+
+  async loadJitterChart(range) {
+    const container = document.getElementById('jitter-chart');
+    try {
+      const response = await fetch(`/api/measurements/host/${this.hostId}?range=${range}`);
+      const data = await response.json();
+
+      const series = [{
+        name: 'Jitter',
+        data: data.measurements.map(m => [new Date(m.tested_at).getTime(), m.jitter_ms])
+      }];
+
+      const options = {
+        chart: { type: 'line', height: 250, background: 'transparent', toolbar: { show: true } },
+        theme: { mode: this.getChartThemeMode() },
+        series: series,
+        xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
+        yaxis: { title: { text: 'Jitter (ms)' }, min: 0 },
+        stroke: { curve: 'smooth', width: 2 },
+        colors: ['#ffc107'],
+        legend: { show: true, showForSingleSeries: true, position: 'bottom', horizontalAlign: 'center' },
+        noData: { text: 'No data available', style: { color: '#a0a0a0' } }
+      };
+
+      container.innerHTML = '';
+      if (this.charts.jitter) this.charts.jitter.destroy();
+      this.charts.jitter = new ApexCharts(container, options);
+      this.charts.jitter.render();
+    } catch (error) {
+      console.error('Failed to load jitter chart:', error);
+    }
+  },
+
+  async loadRecentTests() {
+    const range = document.getElementById('time-range').value;
+    const tbody = document.getElementById('recent-tests-tbody');
+
+    try {
+      const response = await fetch(`/api/measurements/host/${this.hostId}?range=${range}`);
+      const data = await response.json();
+
+      // Show last 20 tests, most recent first
+      const recent = data.measurements.slice(-20).reverse();
+
+      if (recent.length > 0) {
+        tbody.innerHTML = recent.map(m => `
+          <tr>
+            <td>${new Date(m.tested_at).toLocaleString()}</td>
+            <td><span class="status-badge ${m.reachable ? 'up' : 'down'}">${m.reachable ? 'UP' : 'DOWN'}</span></td>
+            <td>${m.latency_ms ? m.latency_ms.toFixed(2) + ' ms' : 'N/A'}</td>
+            <td>${m.jitter_ms ? m.jitter_ms.toFixed(2) + ' ms' : 'N/A'}</td>
+            <td>${m.http_status || '-'}</td>
+            <td class="error-message">${m.error_message ? this.escapeHtml(m.error_message) : '-'}</td>
+          </tr>
+        `).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">No test data available</td></tr>';
+      }
+    } catch (error) {
+      console.error('Failed to load recent tests:', error);
+      tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load data</td></tr>';
+    }
+  },
+
+  async runTest() {
+    try {
+      const response = await fetch(`/api/tests/run/${this.hostId}`, { method: 'POST' });
+      const result = await response.json();
+
+      // Refresh data
+      this.loadCurrentStatus();
+      this.loadStats();
+      this.loadCharts();
+      this.loadRecentTests();
+    } catch (error) {
+      console.error('Failed to run test:', error);
+      alert('Failed to run test');
+    }
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => HostDetail.init());
+</script>

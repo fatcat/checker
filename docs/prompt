@@ -1,0 +1,57 @@
+This is a web application utilizing modern programming techniques and tool chain.
+
+It may be that MCP servers of various kinds will be required to facilitate your
+interactibility with the development environment and application web interface.
+It is desired that you are able to perform automated testing of the application
+as we progress through the development phases, defined below.
+
+At a high level, the application performs network reachability, latency and 
+jitter tests to user-configurable hosts. A database of all tests is kept for 
+at least one year, so a suitable database type is required to make efficient 
+use of storage.
+
+This application will be run inside a container in WSL, so the container must 
+be kept up to date whenever new code is created. Use port number 8090 for the 
+web server running inside the container. Create the necessary dockerfile and
+docker-compose.yaml files to deploy the container.
+
+The development of this app will take place in several phases:
+
+Phase I - This is a tool selection phase. The tools needed for this app include but
+are not limited too:
+	- suitable database for storage of measurements
+	- suitable database for storage of configurable user settings and test hosts
+	- web interface toolkit
+	- logic programming language, which is the Ruby language
+	- a graphing tool that is modern and attractive
+	- I do not want to install a separate web server, so select a Ruby built-in web server
+	- create directories as necessary to keep the code organized
+	- create files as necessary to keep the code modular and organized using modern
+		best practices
+Phase II - design and development of the module(s) that will perform tests on a
+periodic basis. The period is configurable but defaults to once every 5 minutes,
+not less than once per minute.
+The tests this module will perform include:
+	- TCP-based tests; these tests must have a hostname or IP address and a destination
+	  port number.
+	- UDP-based tests; these have the same definable parameters as the TCP tests
+	- Ping tests; these only need a definable hostname or IP
+	- The data obtained by each test include
+		- reachability
+		- latency / round-trip time
+		- jitter
+	- These data points will be stored for a user definable period defaulting to one year
+	- These data points will be graph using the graphing tool defined in phase I
+Phase III - design and development of the web interface. The interface will have several
+main sections
+	- User-definable settings
+	- User-definable test hosts
+	- Graph displays
+	- The graph's display time frame can be user defined or "zoomed"
+	- a "dashboard" that shows a summary of the reachability of all the defined hosts
+
+The web interface will use a combination of CSS, HTML and JavaScript/TypeScript/CoffeeScript
+
+This process will be iterative as I am not certain of all of the features required and more
+may be revealed as development progresses.
+

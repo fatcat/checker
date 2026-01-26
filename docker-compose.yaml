@@ -1,0 +1,33 @@
+# Network Checker - Docker Compose Configuration
+# Usage:
+#   docker compose up -d        # Start in background
+#   docker compose logs -f      # View logs
+#   docker compose down         # Stop and remove containers
+
+services:
+  checker:
+    build: .
+    image: network-checker:latest
+    container_name: network-checker
+    restart: unless-stopped
+    ports:
+      - "9292:9292"
+    volumes:
+      # Persist database and logs
+      - checker-data:/data
+    environment:
+      - RACK_ENV=production
+      - TZ=UTC
+    # Required for ICMP ping tests
+    cap_add:
+      - NET_RAW
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9292/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  checker-data:
+    driver: local

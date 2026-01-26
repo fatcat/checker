@@ -1,0 +1,374 @@
+<div class="settings-page">
+  <h1>Settings</h1>
+
+  <form id="settings-form" class="settings-form">
+    <section class="settings-section">
+      <h2>Appearance</h2>
+
+      <div class="form-group">
+        <label for="theme">Theme</label>
+        <select id="theme">
+          <optgroup label="Dark Themes" id="dark-themes"></optgroup>
+          <optgroup label="Light Themes" id="light-themes"></optgroup>
+        </select>
+        <small class="form-hint">Choose your preferred color theme. Custom themes can be added as JSON files in the themes directory.</small>
+      </div>
+
+      <div class="theme-preview" id="theme-preview">
+        <div class="preview-header">Theme Preview</div>
+        <div class="preview-content">
+          <div class="preview-surface">
+            <span class="preview-text">Sample text</span>
+            <span class="preview-muted">Muted text</span>
+          </div>
+          <div class="preview-badges">
+            <span class="preview-badge accent">Accent</span>
+            <span class="preview-badge success">Success</span>
+            <span class="preview-badge warning">Warning</span>
+            <span class="preview-badge danger">Danger</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Logging</h2>
+
+      <div class="form-group">
+        <label for="log_rotation_period">Log Rotation Period</label>
+        <select id="log_rotation_period">
+          <option value="hourly">Hourly</option>
+          <option value="daily">Daily</option>
+        </select>
+        <small class="form-hint">How often to rotate log files</small>
+      </div>
+
+      <div class="form-group">
+        <label for="log_retention_count">Log Files to Retain</label>
+        <input type="number" id="log_retention_count" min="1" max="168">
+        <small class="form-hint">Number of log files to keep (max 168). For hourly rotation, 12 = 12 hours. For daily, 7 = 1 week.</small>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Testing</h2>
+
+      <div class="form-group">
+        <label for="test_interval_seconds">Test Interval (seconds)</label>
+        <input type="number" id="test_interval_seconds" min="60" max="3600">
+        <small class="form-hint">How often to run tests. Minimum: 60 seconds (1 minute)</small>
+      </div>
+
+      <div class="form-group">
+        <label for="http_timeout_seconds">HTTP Timeout (seconds)</label>
+        <input type="number" id="http_timeout_seconds" min="1" max="60">
+        <small class="form-hint">Timeout for HTTP health checks</small>
+      </div>
+
+      <div class="form-group">
+        <label for="tcp_timeout_seconds">TCP/UDP Timeout (seconds)</label>
+        <input type="number" id="tcp_timeout_seconds" min="1" max="60">
+        <small class="form-hint">Timeout for TCP and UDP port checks</small>
+      </div>
+
+      <div class="form-group">
+        <label for="ping_count">Ping Count</label>
+        <input type="number" id="ping_count" min="1" max="20">
+        <small class="form-hint">Number of pings to send for jitter calculation</small>
+      </div>
+
+      <div class="form-group">
+        <label for="ping_timeout_seconds">Ping Timeout (seconds)</label>
+        <input type="number" id="ping_timeout_seconds" min="1" max="30">
+        <small class="form-hint">Timeout for ping tests</small>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Data Retention</h2>
+
+      <div class="form-group">
+        <label for="raw_data_retention_days">Raw Data Retention (days)</label>
+        <input type="number" id="raw_data_retention_days" min="1" max="365">
+        <small class="form-hint">How long to keep detailed measurement data</small>
+      </div>
+
+      <div class="form-group">
+        <label for="aggregation_15min_retention_days">15-Minute Aggregation Retention (days)</label>
+        <input type="number" id="aggregation_15min_retention_days" min="1" max="365">
+        <small class="form-hint">How long to keep 15-minute aggregated data before converting to hourly</small>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+      <button type="button" class="btn btn-secondary" onclick="Settings.loadSettings()">Reset</button>
+    </div>
+  </form>
+</div>
+
+<style>
+.settings-form {
+  max-width: 700px;
+}
+
+.settings-section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-section:last-of-type {
+  border-bottom: none;
+}
+
+.settings-section h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+  color: var(--color-text);
+}
+
+.form-hint {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.form-actions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.theme-preview {
+  margin-top: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.preview-header {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.preview-content {
+  padding: 1rem;
+}
+
+.preview-surface {
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.preview-text {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.preview-muted {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.preview-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.preview-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.preview-badge.accent {
+  background-color: var(--preview-accent);
+  color: white;
+}
+
+.preview-badge.success {
+  background-color: var(--preview-success);
+  color: white;
+}
+
+.preview-badge.warning {
+  background-color: var(--preview-warning);
+  color: black;
+}
+
+.preview-badge.danger {
+  background-color: var(--preview-danger);
+  color: white;
+}
+</style>
+
+<script>
+const Settings = {
+  settings: {},
+  themes: [],
+
+  init() {
+    this.loadThemes();
+    this.loadSettings();
+    document.getElementById('settings-form').addEventListener('submit', (e) => this.saveSettings(e));
+    document.getElementById('theme').addEventListener('change', (e) => this.previewTheme(e.target.value));
+  },
+
+  async loadThemes() {
+    try {
+      const response = await fetch('/api/themes');
+      const data = await response.json();
+      this.themes = data.themes;
+
+      const darkGroup = document.getElementById('dark-themes');
+      const lightGroup = document.getElementById('light-themes');
+
+      data.dark_themes.forEach(theme => {
+        const option = document.createElement('option');
+        option.value = theme.id;
+        option.textContent = theme.name;
+        darkGroup.appendChild(option);
+      });
+
+      data.light_themes.forEach(theme => {
+        const option = document.createElement('option');
+        option.value = theme.id;
+        option.textContent = theme.name;
+        lightGroup.appendChild(option);
+      });
+    } catch (error) {
+      console.error('Failed to load themes:', error);
+    }
+  },
+
+  async loadSettings() {
+    try {
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+      this.settings = data.settings;
+      this.populateForm();
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      alert('Failed to load settings');
+    }
+  },
+
+  populateForm() {
+    const fields = [
+      'test_interval_seconds',
+      'raw_data_retention_days',
+      'aggregation_15min_retention_days',
+      'http_timeout_seconds',
+      'tcp_timeout_seconds',
+      'ping_count',
+      'ping_timeout_seconds',
+      'log_rotation_period',
+      'log_retention_count',
+      'theme'
+    ];
+
+    fields.forEach(field => {
+      const input = document.getElementById(field);
+      if (input && this.settings[field] !== undefined) {
+        input.value = this.settings[field];
+      }
+    });
+
+    // Update theme preview
+    if (this.settings.theme) {
+      this.previewTheme(this.settings.theme);
+    }
+  },
+
+  async previewTheme(themeId) {
+    const preview = document.getElementById('theme-preview');
+    const theme = this.themes.find(t => t.id === themeId);
+
+    if (!theme) return;
+
+    try {
+      const response = await fetch(`/api/themes/${themeId}/css`);
+      const css = await response.text();
+
+      // Parse CSS variables from response
+      const vars = {};
+      const matches = css.matchAll(/--color-([^:]+):\s*([^;]+);/g);
+      for (const match of matches) {
+        vars[match[1]] = match[2].trim();
+      }
+
+      // Apply to preview
+      preview.style.setProperty('--preview-bg', vars['background']);
+      preview.style.setProperty('--preview-surface', vars['surface']);
+      preview.style.setProperty('--preview-border', vars['border']);
+      preview.style.setProperty('--preview-text', vars['text']);
+      preview.style.setProperty('--preview-muted', vars['text-muted']);
+      preview.style.setProperty('--preview-accent', vars['accent']);
+      preview.style.setProperty('--preview-success', vars['success']);
+      preview.style.setProperty('--preview-warning', vars['warning']);
+      preview.style.setProperty('--preview-danger', vars['danger']);
+
+      preview.querySelector('.preview-header').style.backgroundColor = vars['background'];
+      preview.querySelector('.preview-header').style.color = vars['text-muted'];
+      preview.querySelector('.preview-content').style.backgroundColor = vars['background'];
+      preview.querySelector('.preview-surface').style.backgroundColor = vars['surface'];
+      preview.querySelector('.preview-text').style.color = vars['text'];
+      preview.querySelector('.preview-muted').style.color = vars['text-muted'];
+
+    } catch (error) {
+      console.error('Failed to preview theme:', error);
+    }
+  },
+
+  async saveSettings(e) {
+    e.preventDefault();
+
+    const data = {
+      test_interval_seconds: document.getElementById('test_interval_seconds').value,
+      raw_data_retention_days: document.getElementById('raw_data_retention_days').value,
+      aggregation_15min_retention_days: document.getElementById('aggregation_15min_retention_days').value,
+      http_timeout_seconds: document.getElementById('http_timeout_seconds').value,
+      tcp_timeout_seconds: document.getElementById('tcp_timeout_seconds').value,
+      ping_count: document.getElementById('ping_count').value,
+      ping_timeout_seconds: document.getElementById('ping_timeout_seconds').value,
+      log_rotation_period: document.getElementById('log_rotation_period').value,
+      log_retention_count: document.getElementById('log_retention_count').value,
+      theme: document.getElementById('theme').value
+    };
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        this.settings = result.settings;
+
+        // Apply theme immediately using global ThemeManager
+        if (window.ThemeManager) {
+          window.ThemeManager.applyTheme(data.theme);
+        }
+
+        alert('Settings saved successfully');
+      } else {
+        alert('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('Failed to save settings');
+    }
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => Settings.init());
+</script>

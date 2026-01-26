@@ -1,0 +1,20 @@
+{
+  "id": "dark-ocean",
+  "name": "Dark Ocean",
+  "type": "dark",
+  "description": "Deep blue tones inspired by the ocean depths",
+  "colors": {
+    "background": "#0a1628",
+    "surface": "#112240",
+    "surface-hover": "#1a3a5c",
+    "border": "#234670",
+    "text": "#ccd6f6",
+    "text-muted": "#8892b0",
+    "accent": "#64ffda",
+    "accent-hover": "#4cd9b8",
+    "success": "#64ffda",
+    "warning": "#ffd93d",
+    "danger": "#ff6b6b",
+    "info": "#74b9ff"
+  }
+}

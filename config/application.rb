@@ -1,0 +1,43 @@
+# frozen_string_literal: true
+
+module Checker
+  class Configuration
+    DEFAULT_SETTINGS = {
+      'test_interval_seconds' => 300,        # 5 minutes
+      'raw_data_retention_days' => 14,
+      'aggregation_15min_retention_days' => 30,
+      'http_timeout_seconds' => 10,
+      'tcp_timeout_seconds' => 5,
+      'ping_count' => 5,                     # Number of pings for jitter calculation
+      'ping_timeout_seconds' => 5,
+      'log_rotation_period' => 'hourly',     # hourly or daily
+      'log_retention_count' => 12,           # Number of log files to keep
+      'theme' => 'dark-default'              # Current theme ID
+    }.freeze
+
+    class << self
+      def get(key)
+        setting = DB[:settings].where(key: key.to_s).first
+        setting ? setting[:value] : DEFAULT_SETTINGS[key.to_s]
+      end
+
+      def set(key, value)
+        DB[:settings].insert_conflict(
+          target: :key,
+          update: { value: value.to_s, updated_at: Time.now }
+        ).insert(key: key.to_s, value: value.to_s)
+      end
+
+      def all
+        stored = DB[:settings].all.each_with_object({}) do |row, hash|
+          hash[row[:key]] = row[:value]
+        end
+        DEFAULT_SETTINGS.merge(stored)
+      end
+
+      def test_interval
+        get('test_interval_seconds').to_i
+      end
+    end
+  end
+end

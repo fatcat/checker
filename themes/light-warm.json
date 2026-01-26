@@ -1,0 +1,20 @@
+{
+  "id": "light-warm",
+  "name": "Light Warm",
+  "type": "light",
+  "description": "Warm cream tones with orange accents",
+  "colors": {
+    "background": "#faf6f1",
+    "surface": "#ffffff",
+    "surface-hover": "#f5efe8",
+    "border": "#e8dfd4",
+    "text": "#2d2013",
+    "text-muted": "#8b7355",
+    "accent": "#ea580c",
+    "accent-hover": "#c2410c",
+    "success": "#16a34a",
+    "warning": "#ca8a04",
+    "danger": "#dc2626",
+    "info": "#0284c7"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "dark-crimson",
+  "name": "Dark Crimson",
+  "type": "dark",
+  "description": "Bold red accents on a dark background",
+  "colors": {
+    "background": "#0d0d0d",
+    "surface": "#1a1a1a",
+    "surface-hover": "#2a2a2a",
+    "border": "#3a3a3a",
+    "text": "#f0f0f0",
+    "text-muted": "#888888",
+    "accent": "#e63946",
+    "accent-hover": "#c92d3a",
+    "success": "#2ecc71",
+    "warning": "#f39c12",
+    "danger": "#e63946",
+    "info": "#3498db"
+  }
+}

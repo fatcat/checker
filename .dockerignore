@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Development/Test
+spec/
+docs/
+Rakefile
+.rspec
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and databases (use volumes instead)
+log/
+db/*.sqlite3
+
+# Ruby
+*.gem
+*.rbc
+.bundle
+vendor/bundle
+
+# Temporary files
+tmp/
+*.tmp
+*.bak

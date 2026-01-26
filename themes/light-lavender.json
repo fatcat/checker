@@ -1,0 +1,20 @@
+{
+  "id": "light-lavender",
+  "name": "Light Lavender",
+  "type": "light",
+  "description": "Soft purple theme with lavender tones",
+  "colors": {
+    "background": "#faf5ff",
+    "surface": "#ffffff",
+    "surface-hover": "#f3e8ff",
+    "border": "#e9d5ff",
+    "text": "#3b0764",
+    "text-muted": "#7c3aed",
+    "accent": "#8b5cf6",
+    "accent-hover": "#7c3aed",
+    "success": "#22c55e",
+    "warning": "#f59e0b",
+    "danger": "#ef4444",
+    "info": "#06b6d4"
+  }
+}

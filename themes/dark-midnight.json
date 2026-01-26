@@ -1,0 +1,20 @@
+{
+  "id": "dark-midnight",
+  "name": "Midnight",
+  "type": "dark",
+  "description": "Pure black with electric blue accents",
+  "colors": {
+    "background": "#000000",
+    "surface": "#0d0d0d",
+    "surface-hover": "#1a1a1a",
+    "border": "#262626",
+    "text": "#ffffff",
+    "text-muted": "#737373",
+    "accent": "#3b82f6",
+    "accent-hover": "#2563eb",
+    "success": "#22c55e",
+    "warning": "#eab308",
+    "danger": "#ef4444",
+    "info": "#06b6d4"
+  }
+}

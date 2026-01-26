@@ -1,0 +1,20 @@
+{
+  "id": "dark-default",
+  "name": "Dark (Default)",
+  "type": "dark",
+  "description": "The default dark theme with green accents",
+  "colors": {
+    "background": "#0a0a0a",
+    "surface": "#1a1a1a",
+    "surface-hover": "#252525",
+    "border": "#333333",
+    "text": "#e0e0e0",
+    "text-muted": "#808080",
+    "accent": "#00bf63",
+    "accent-hover": "#00a354",
+    "success": "#00bf63",
+    "warning": "#ffc107",
+    "danger": "#dc3545",
+    "info": "#17a2b8"
+  }
+}

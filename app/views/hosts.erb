@@ -1,0 +1,249 @@
+<div class="hosts-page">
+  <div class="page-header">
+    <h1>Hosts</h1>
+    <button class="btn btn-primary" onclick="Hosts.showAddForm()">Add Host</button>
+  </div>
+
+  <div id="host-form-container" class="form-container" style="display: none;">
+    <form id="host-form" class="host-form">
+      <input type="hidden" id="host-id" value="">
+
+      <div class="form-group">
+        <label for="host-name">Name</label>
+        <input type="text" id="host-name" placeholder="e.g., Google DNS" required>
+      </div>
+
+      <div class="form-group">
+        <label for="host-address">Address</label>
+        <input type="text" id="host-address" placeholder="e.g., 8.8.8.8 or google.com" required>
+      </div>
+
+      <div class="form-group">
+        <label for="host-test-type">Test Type</label>
+        <select id="host-test-type" onchange="Hosts.toggleConditionalFields()">
+          <option value="ping">Ping</option>
+          <option value="tcp">TCP Port</option>
+          <option value="udp">UDP Port</option>
+          <option value="http">HTTP</option>
+          <option value="dns">DNS Resolution</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="port-group" style="display: none;">
+        <label for="host-port">Port</label>
+        <input type="number" id="host-port" placeholder="e.g., 80, 443" min="1" max="65535">
+      </div>
+
+      <div class="form-group" id="dns-hostname-group" style="display: none;">
+        <label for="host-dns-hostname">Hostname to Resolve</label>
+        <input type="text" id="host-dns-hostname" placeholder="e.g., google.com">
+        <small class="form-hint">The hostname this DNS server should resolve. You are responsible for ensuring it's resolvable.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="host-randomness">Test Timing Randomness (%)</label>
+        <input type="number" id="host-randomness" value="0" min="0" max="50" step="1">
+        <small class="form-hint">Adds variation to test timing. 5% on a 5-min interval = +/- 15 seconds.</small>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="host-enabled" checked>
+          Enabled
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-secondary" onclick="Hosts.hideForm()">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <table class="table" id="hosts-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th>Type</th>
+        <th>Port</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="hosts-tbody">
+      <tr>
+        <td colspan="6" class="loading">Loading hosts...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const Hosts = {
+  init() {
+    this.loadHosts();
+    document.getElementById('host-form').addEventListener('submit', (e) => this.saveHost(e));
+  },
+
+  async loadHosts() {
+    const tbody = document.getElementById('hosts-tbody');
+    try {
+      const response = await fetch('/api/hosts');
+      const data = await response.json();
+
+      if (data.hosts && data.hosts.length > 0) {
+        tbody.innerHTML = data.hosts.map(host => this.renderHostRow(host)).join('');
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">No hosts configured.</td></tr>';
+      }
+    } catch (error) {
+      console.error('Failed to load hosts:', error);
+      tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load hosts.</td></tr>';
+    }
+  },
+
+  renderHostRow(host) {
+    const statusBadge = host.enabled
+      ? '<span class="status-badge up">Enabled</span>'
+      : '<span class="status-badge down">Disabled</span>';
+
+    return `
+      <tr data-id="${host.id}">
+        <td>${this.escapeHtml(host.name)}</td>
+        <td>${this.escapeHtml(host.address)}</td>
+        <td>${host.test_type.toUpperCase()}</td>
+        <td>${host.port || '-'}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <button class="btn btn-secondary" onclick="Hosts.editHost(${host.id})">Edit</button>
+          <button class="btn btn-danger" onclick="Hosts.deleteHost(${host.id})">Delete</button>
+        </td>
+      </tr>
+    `;
+  },
+
+  showAddForm() {
+    document.getElementById('host-id').value = '';
+    document.getElementById('host-form').reset();
+    document.getElementById('host-form-container').style.display = 'block';
+    this.toggleConditionalFields();
+  },
+
+  hideForm() {
+    document.getElementById('host-form-container').style.display = 'none';
+  },
+
+  toggleConditionalFields() {
+    const testType = document.getElementById('host-test-type').value;
+    const portGroup = document.getElementById('port-group');
+    const portInput = document.getElementById('host-port');
+    const dnsGroup = document.getElementById('dns-hostname-group');
+    const dnsInput = document.getElementById('host-dns-hostname');
+
+    // Port field for tcp, udp, http
+    if (['tcp', 'udp', 'http'].includes(testType)) {
+      portGroup.style.display = 'block';
+      portInput.required = true;
+      if (testType === 'http' && !portInput.value) {
+        portInput.value = '443';
+      }
+    } else {
+      portGroup.style.display = 'none';
+      portInput.required = false;
+    }
+
+    // DNS hostname field for dns
+    if (testType === 'dns') {
+      dnsGroup.style.display = 'block';
+      dnsInput.required = true;
+    } else {
+      dnsGroup.style.display = 'none';
+      dnsInput.required = false;
+    }
+  },
+
+  async editHost(id) {
+    try {
+      const response = await fetch(`/api/hosts/${id}`);
+      const host = await response.json();
+
+      document.getElementById('host-id').value = host.id;
+      document.getElementById('host-name').value = host.name;
+      document.getElementById('host-address').value = host.address;
+      document.getElementById('host-test-type').value = host.test_type;
+      document.getElementById('host-port').value = host.port || '';
+      document.getElementById('host-dns-hostname').value = host.dns_query_hostname || '';
+      document.getElementById('host-randomness').value = host.randomness_percent || 0;
+      document.getElementById('host-enabled').checked = host.enabled;
+
+      this.toggleConditionalFields();
+      document.getElementById('host-form-container').style.display = 'block';
+    } catch (error) {
+      console.error('Failed to load host:', error);
+      alert('Failed to load host data');
+    }
+  },
+
+  async saveHost(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('host-id').value;
+    const data = {
+      name: document.getElementById('host-name').value,
+      address: document.getElementById('host-address').value,
+      test_type: document.getElementById('host-test-type').value,
+      port: document.getElementById('host-port').value || null,
+      dns_query_hostname: document.getElementById('host-dns-hostname').value || null,
+      randomness_percent: parseInt(document.getElementById('host-randomness').value) || 0,
+      enabled: document.getElementById('host-enabled').checked
+    };
+
+    try {
+      const url = id ? `/api/hosts/${id}` : '/api/hosts';
+      const method = id ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        this.hideForm();
+        this.loadHosts();
+      } else {
+        const error = await response.json();
+        alert('Failed to save host: ' + (error.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Failed to save host:', error);
+      alert('Failed to save host');
+    }
+  },
+
+  async deleteHost(id) {
+    if (!confirm('Are you sure you want to delete this host?')) return;
+
+    try {
+      const response = await fetch(`/api/hosts/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        this.loadHosts();
+      } else {
+        alert('Failed to delete host');
+      }
+    } catch (error) {
+      console.error('Failed to delete host:', error);
+      alert('Failed to delete host');
+    }
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => Hosts.init());
+</script>

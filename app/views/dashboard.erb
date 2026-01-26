@@ -1,0 +1,58 @@
+<div class="dashboard">
+  <div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <div class="dashboard-actions">
+      <label class="auto-refresh-toggle">
+        <input type="checkbox" id="auto-refresh" checked>
+        <span>Auto-refresh</span>
+      </label>
+      <span id="scheduler-status" class="scheduler-status"></span>
+      <button class="btn btn-primary" id="run-tests-btn" onclick="Checker.runTestsNow()">Run Tests Now</button>
+    </div>
+  </div>
+
+  <section class="status-summary">
+    <h2>Host Status</h2>
+    <div id="host-status-grid" class="host-grid">
+      <p class="loading">Loading host status...</p>
+    </div>
+  </section>
+
+  <section class="charts">
+    <div class="charts-header">
+      <h2>Performance Metrics</h2>
+      <div class="chart-controls">
+        <select id="time-range">
+          <option value="1h">Last Hour</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="24h" selected>Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <div id="custom-range" class="custom-range-picker" style="display: none;">
+          <input type="datetime-local" id="range-start" />
+          <span>to</span>
+          <input type="datetime-local" id="range-end" />
+          <button class="btn btn-secondary btn-sm" onclick="Checker.applyCustomRange()">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="latency-charts-container" class="latency-charts">
+      <p class="loading">Loading latency charts...</p>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-container full-width">
+        <h3>Jitter (IPDV) - All Hosts</h3>
+        <div id="jitter-chart" class="chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="charts">
+    <h2>Reachability</h2>
+    <div id="reachability-chart" class="chart"></div>
+  </section>
+</div>
