@@ -17,7 +17,9 @@ COPY Gemfile Gemfile.lock ./
 # Install gems
 RUN bundle config set --local deployment 'true' && \
     bundle config set --local without 'development test' && \
-    bundle install --jobs 4
+    bundle config set --local path 'vendor/bundle' && \
+    bundle install --jobs 4 && \
+    ls -la .bundle
 
 # Runtime stage
 FROM ruby:3.3-alpine
