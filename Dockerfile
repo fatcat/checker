@@ -2,12 +2,13 @@
 # Multi-stage build for smaller image size
 
 # Build stage
-FROM ruby:3.3-alpine AS builder
+FROM ruby:3.3-slim AS builder
 
 # Install build dependencies
-RUN apk add --no-cache \
-    build-base \
-    sqlite-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -21,22 +22,22 @@ RUN bundle config set --local deployment 'true' && \
     bundle install --jobs 4
 
 # Runtime stage
-FROM ruby:3.3-alpine
+FROM ruby:3.3-slim
 
 # Install runtime dependencies
-# - sqlite: database
-# - iputils: ping command for ICMP tests
-# - bind-tools: dig/nslookup for DNS tests
-# - tzdata: timezone data
-RUN apk add --no-cache \
-    sqlite-libs \
-    iputils \
-    bind-tools \
-    tzdata
+# - libsqlite3-0: database
+# - iputils-ping: ping command for ICMP tests
+# - dnsutils: dig/nslookup for DNS tests
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsqlite3-0 \
+    iputils-ping \
+    dnsutils \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup -g 1000 checker && \
-    adduser -u 1000 -G checker -s /bin/sh -D checker
+RUN groupadd -g 1000 checker && \
+    useradd -u 1000 -g checker -s /bin/sh -m checker
 
 WORKDIR /app
 
@@ -45,11 +46,6 @@ COPY --chown=checker:checker . .
 
 # Copy gems from builder
 COPY --from=builder --chown=checker:checker /app/vendor/bundle ./vendor/bundle
-
-# Configure bundler for deployment (instead of copying .bundle from builder)
-RUN bundle config set --local deployment 'true' && \
-    bundle config set --local without 'development test' && \
-    bundle config set --local path 'vendor/bundle'
 
 # Create directories for persistent data
 RUN mkdir -p /data/db /data/log && \
@@ -64,12 +60,17 @@ ENV RACK_ENV=production \
 # Switch to non-root user
 USER checker
 
+# Configure bundler for deployment (run as checker user)
+RUN bundle config set --local deployment 'true' && \
+    bundle config set --local without 'development test' && \
+    bundle config set --local path 'vendor/bundle'
+
 # Expose port
 EXPOSE 9292
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:9292/health || exit 1
+    CMD curl -f http://localhost:9292/health || exit 1
 
 # Start the application
 CMD ["bundle", "exec", "puma", "-C", "-", "-b", "tcp://0.0.0.0:9292", "config.ru"]
