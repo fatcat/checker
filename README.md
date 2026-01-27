@@ -2,6 +2,8 @@
 
 A lightweight, self-hosted network monitoring application for tracking the availability and performance of hosts across your infrastructure.
 
+Coded 90% by Claude Code. Reduced the time required from 3 weeks (I hardly ever do web apps) to 3 hours. The prompt I used to get started is in the ./docs directory. Use the CLAUDE.md file to make changes using Claude Code.
+
 ## Features
 
 - **Multiple Test Types**
