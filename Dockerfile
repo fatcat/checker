@@ -18,8 +18,7 @@ COPY Gemfile Gemfile.lock ./
 RUN bundle config set --local deployment 'true' && \
     bundle config set --local without 'development test' && \
     bundle config set --local path 'vendor/bundle' && \
-    bundle install --jobs 4 && \
-    ls -la .bundle
+    bundle install --jobs 4
 
 # Runtime stage
 FROM ruby:3.3-alpine
@@ -46,7 +45,11 @@ COPY --chown=checker:checker . .
 
 # Copy gems from builder
 COPY --from=builder --chown=checker:checker /app/vendor/bundle ./vendor/bundle
-COPY --from=builder --chown=checker:checker /app/.bundle ./.bundle
+
+# Configure bundler for deployment (instead of copying .bundle from builder)
+RUN bundle config set --local deployment 'true' && \
+    bundle config set --local without 'development test' && \
+    bundle config set --local path 'vendor/bundle'
 
 # Create directories for persistent data
 RUN mkdir -p /data/db /data/log && \
