@@ -1,0 +1,43 @@
+# Network Checker - Production Docker Compose
+# Builds from git repository instead of local files
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yaml build    # Build from repo
+#   docker compose -f docker-compose.prod.yaml up -d    # Start
+#   docker compose -f docker-compose.prod.yaml pull     # N/A (builds locally)
+#
+# To deploy a specific branch:
+#   docker compose -f docker-compose.prod.yaml build --build-arg REPO_BRANCH=feature-branch
+
+services:
+  checker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        REPO_URL: https://github.com/fatcat/checker.git
+        REPO_BRANCH: main
+    image: network-checker:latest
+    container_name: network-checker
+    restart: unless-stopped
+    ports:
+      - "9292:9292"
+    volumes:
+      # Persist database and logs
+      - checker-data:/data
+    environment:
+      - RACK_ENV=production
+      - TZ=UTC
+    # Required for ICMP ping tests
+    cap_add:
+      - NET_RAW
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9292/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  checker-data:
+    driver: local
