@@ -7,44 +7,28 @@ module Checker
   module Testers
     class Tcp < Base
       def run
-        tcp_timeout = config[:tcp_timeout] || 5
-        sample_count = config[:sample_count] || 3
+        tcp_timeout = [config[:tcp_timeout] || 5, 10].min # Max 10 seconds
 
-        latencies = []
-        errors = []
+        result = measure_connection(tcp_timeout)
 
-        sample_count.times do
-          result = measure_connection(tcp_timeout)
-          if result[:success]
-            latencies << result[:latency_ms]
-          else
-            errors << result[:error]
-          end
-        end
+        if result[:success]
+          record_result(
+            reachable: true,
+            latency_ms: result[:latency_ms].round(3)
+          )
 
-        if latencies.empty?
+          {
+            reachable: true,
+            latency_ms: result[:latency_ms].round(3)
+          }
+        else
           record_result(
             reachable: false,
-            error_message: errors.first || "Connection failed"
+            error_message: result[:error] || "Connection failed"
           )
-          return { reachable: false, error: errors.first }
+
+          { reachable: false, error: result[:error] }
         end
-
-        avg_latency = latencies.sum / latencies.size
-        jitter = calculate_ipdv(latencies)
-
-        record_result(
-          reachable: true,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3)
-        )
-
-        {
-          reachable: true,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3),
-          samples: latencies.size
-        }
       end
 
       private
@@ -82,17 +66,6 @@ module Checker
         { success: false, error: e.message }
       end
 
-      def calculate_ipdv(latencies)
-        return 0.0 if latencies.size < 2
-
-        delay_variations = []
-        (1...latencies.size).each do |i|
-          variation = (latencies[i] - latencies[i - 1]).abs
-          delay_variations << variation
-        end
-
-        delay_variations.sum / delay_variations.size
-      end
     end
   end
 end

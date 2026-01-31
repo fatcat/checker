@@ -3,11 +3,12 @@
 module Checker
   module Testers
     class Base
-      attr_reader :host, :config
+      attr_reader :test, :config
 
-      def initialize(host, config = {})
-        @host = host
+      def initialize(test, config = {})
+        @test = test
         @config = config
+        @record_results = config.fetch(:record_results, true)
       end
 
       def run
@@ -15,9 +16,12 @@ module Checker
       end
 
       def record_result(reachable:, latency_ms: nil, jitter_ms: nil, http_status: nil, error_message: nil)
+        # Skip recording if this is a validation test
+        return unless @record_results
+
         DB[:measurements].insert(
-          host_id: host[:id] || host.id,
-          test_type: host[:test_type] || host.test_type,
+          host_id: test.host_id,
+          test_type: test.test_type,
           reachable: reachable,
           latency_ms: latency_ms,
           jitter_ms: jitter_ms,
@@ -35,11 +39,15 @@ module Checker
       end
 
       def address
-        host[:address] || host.address
+        test.host.address
       end
 
       def port
-        host[:port] || host.port
+        test.port
+      end
+
+      def host
+        test.host
       end
     end
   end

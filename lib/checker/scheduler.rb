@@ -7,7 +7,7 @@ module Checker
   class Scheduler
     attr_reader :scheduler, :test_job, :aggregation_job
 
-    # Check for due hosts every 10 seconds
+    # Check for due tests every 10 seconds
     CHECK_INTERVAL = 10
 
     def initialize
@@ -19,7 +19,7 @@ module Checker
       return if @running
 
       @running = true
-      initialize_host_schedules
+      initialize_test_schedules
       schedule_test_checks
       schedule_aggregation
 
@@ -38,43 +38,52 @@ module Checker
     end
 
     def run_tests_now
-      # Run all enabled hosts immediately
+      # Run all enabled tests for all enabled hosts immediately
       perform_tests_for_all_hosts
     end
 
     def run_test_for_host(host_id)
+      # Run all tests for a specific host
       host = Host[host_id]
-      return nil unless host&.enabled
+      return [] unless host&.enabled
 
       config = build_test_config
-      result = Testers.run_single(host, config)
-
-      # Update next_test_at with randomness
       base_interval = Configuration.test_interval
-      host.update(next_test_at: host.calculate_next_test_time(base_interval))
+      results = []
 
-      result
+      host.tests_dataset.where(enabled: true).each do |test|
+        result = Testers.run_single(test, config)
+        results << result
+
+        # Update next_test_at with randomness
+        test.update(next_test_at: test.calculate_next_test_time(base_interval))
+
+        log_test_result(host, test, result)
+      end
+
+      results
     end
 
     private
 
-    def initialize_host_schedules
-      # Set initial next_test_at for any hosts that don't have one
+    def initialize_test_schedules
+      # Set initial next_test_at for any tests that don't have one
       base_interval = Configuration.test_interval
 
-      Host.enabled.each do |host|
-        next if host.next_test_at
+      Host.all_enabled_tests.each do |test|
+        next if test.next_test_at
 
         # Stagger initial tests to avoid thundering herd
         random_delay = rand(0..base_interval)
-        host.update(next_test_at: Time.now + random_delay)
+        test.update(next_test_at: Time.now + random_delay)
       end
 
-      Checker.logger.info "Initialized test schedules for #{Host.enabled.count} hosts"
+      test_count = Host.all_enabled_tests.count
+      Checker.logger.info "Initialized test schedules for #{test_count} tests"
     end
 
     def schedule_test_checks
-      # Check every 10 seconds for hosts that are due for testing
+      # Check every 10 seconds for tests that are due for execution
       @test_job = @scheduler.every("#{CHECK_INTERVAL}s", first_in: '5s') do
         check_and_run_due_tests
       end
@@ -97,21 +106,33 @@ module Checker
       config = build_test_config
       base_interval = Configuration.test_interval
 
-      due_hosts = Host.enabled.where { next_test_at <= now }.all
-      due_hosts += Host.enabled.where(next_test_at: nil).all
+      # Query: Get all enabled tests where next_test_at <= now
+      due_tests = Test.enabled
+        .where(host_id: Host.enabled.select(:id))
+        .where { next_test_at <= now }
+        .all
 
-      return if due_hosts.empty?
+      # Include tests that have never been run
+      due_tests += Test.enabled
+        .where(host_id: Host.enabled.select(:id))
+        .where(next_test_at: nil)
+        .all
+
+      return if due_tests.empty?
 
       results = []
 
-      due_hosts.each do |host|
-        result = Testers.run_single(host, config)
-        results << { host: host, result: result }
+      due_tests.each do |test|
+        host = test.host
+        next unless host # Safety check
 
-        # Calculate next test time with randomness
-        host.update(next_test_at: host.calculate_next_test_time(base_interval))
+        result = Testers.run_single(test, config)
+        results << { test: test, result: result }
 
-        log_test_result(host, result)
+        # Calculate next test time with host's randomness
+        test.update(next_test_at: test.calculate_next_test_time(base_interval))
+
+        log_test_result(host, test, result)
       end
 
       results
@@ -127,17 +148,19 @@ module Checker
       results = []
 
       Host.enabled.each do |host|
-        result = Testers.run_single(host, config)
-        results << { host: host, result: result }
+        host.tests_dataset.where(enabled: true).each do |test|
+          result = Testers.run_single(test, config)
+          results << { test: test, result: result }
 
-        # Reset next_test_at after manual run
-        host.update(next_test_at: host.calculate_next_test_time(base_interval))
+          # Reset next_test_at after manual run
+          test.update(next_test_at: test.calculate_next_test_time(base_interval))
+        end
       end
 
-      Checker.logger.info "Manual run: tested #{results.size} hosts"
+      Checker.logger.info "Manual run: executed #{results.size} tests"
 
       results.each do |r|
-        log_test_result(r[:host], r[:result], indent: true)
+        log_test_result(r[:test].host, r[:test], r[:result], indent: true)
       end
 
       results
@@ -155,38 +178,36 @@ module Checker
 
     def build_test_config
       {
-        ping_count: Configuration.get('ping_count').to_i,
-        ping_timeout: Configuration.get('ping_timeout_seconds').to_i,
-        tcp_timeout: Configuration.get('tcp_timeout_seconds').to_i,
-        http_timeout: Configuration.get('http_timeout_seconds').to_i
+        ping_count: (Configuration.get('ping_count') || 5).to_i,
+        ping_timeout: (Configuration.get('ping_timeout_seconds') || 5).to_i,
+        tcp_timeout: (Configuration.get('tcp_timeout_seconds') || 5).to_i,
+        http_timeout: (Configuration.get('http_timeout_seconds') || 10).to_i,
+        dns_timeout: (Configuration.get('dns_timeout_seconds') || 5).to_i
       }
     end
 
-    def log_test_result(host, result, indent: false)
+    def log_test_result(host, test, result, indent: false)
       prefix = indent ? '  ' : ''
       status = result[:reachable] ? 'UP' : 'DOWN'
       latency = result[:latency_ms] ? "#{result[:latency_ms]}ms" : 'N/A'
-      test_info = format_test_info(host)
+      test_info = format_test_info(host, test)
       error_info = result[:error] ? " - #{result[:error]}" : ''
 
       Checker.logger.info "#{prefix}#{host.name} [#{test_info}]: #{status} (#{latency})#{error_info}"
     end
 
-    def format_test_info(host)
-      case host.test_type
+    def format_test_info(host, test)
+      case test.test_type
       when 'ping'
         "PING #{host.address}"
       when 'tcp'
-        "TCP #{host.address}:#{host.port}"
-      when 'udp'
-        "UDP #{host.address}:#{host.port}"
+        "TCP #{host.address}:#{test.port}"
       when 'http'
-        scheme = host.port == 443 ? 'https' : 'http'
-        "HTTP #{scheme}://#{host.address}:#{host.port}"
+        "HTTP #{test.http_scheme}://#{host.address}:#{test.port}"
       when 'dns'
-        "DNS #{host.address} -> #{host.dns_query_hostname}"
+        "DNS #{host.address} -> #{test.dns_query_hostname}"
       else
-        "#{host.test_type.upcase} #{host.address}"
+        "#{test.test_type.upcase} #{host.address}"
       end
     end
   end

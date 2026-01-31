@@ -3,11 +3,10 @@
 module Checker
   class Host < Sequel::Model(:hosts)
     one_to_many :measurements
+    one_to_many :tests
 
     plugin :timestamps, update_on_create: true
     plugin :validation_helpers
-
-    VALID_TEST_TYPES = %w[ping tcp udp http dns].freeze
 
     # IPv4 address pattern: 4 octets (0-255) separated by dots
     IPV4_PATTERN = /\A(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\z/
@@ -53,27 +52,18 @@ module Checker
 
     def validate
       super
-      validates_presence [:name, :address, :test_type]
-      validates_includes VALID_TEST_TYPES, :test_type
-      validates_presence :port if %w[tcp udp http].include?(test_type)
-      validates_presence :dns_query_hostname if test_type == 'dns'
+      validates_presence [:name, :address]
 
-      # Address validation based on test type
+      # Address validation (accepts IPv4 or hostname)
       if address && !address.to_s.strip.empty?
-        if test_type == 'dns'
-          # DNS test requires the address to be a DNS server IP
-          errors.add(:address, 'must be a valid IPv4 address for DNS tests') unless valid_ipv4?(address)
-        else
-          # Other tests accept either IPv4 or hostname
-          errors.add(:address, 'must be a valid IPv4 address or hostname') unless valid_address?(address)
-        end
+        errors.add(:address, 'must be a valid IPv4 address or hostname') unless valid_address?(address)
       end
 
-      # DNS query hostname must be a valid hostname
-      if test_type == 'dns' && dns_query_hostname && !dns_query_hostname.to_s.strip.empty?
-        unless valid_hostname?(dns_query_hostname)
-          errors.add(:dns_query_hostname, 'must be a valid hostname')
-        end
+      # Randomness validation (0-50% to prevent excessive variation)
+      if randomness_percent
+        validates_integer :randomness_percent
+        validates_operator :>=, 0, :randomness_percent
+        validates_operator :<=, 50, :randomness_percent
       end
     end
 
@@ -81,33 +71,105 @@ module Checker
       where(enabled: true)
     end
 
+    # Get all enabled tests across all enabled hosts (for scheduler)
+    def self.all_enabled_tests
+      Test.enabled.where(host_id: Host.enabled.select(:id))
+    end
+
+    def ping_test
+      tests_dataset.where(test_type: 'ping').first
+    end
+
+    def has_ping_test?
+      !ping_test.nil?
+    end
+
+    def overall_status
+      # Host is "up" if ANY enabled test is successful
+      tests_dataset.where(enabled: true).any? do |test|
+        test.status == 'success'
+      end
+    end
+
     def latest_measurement
+      # Get most recent measurement across all tests
       Measurement.where(host_id: id).order(Sequel.desc(:tested_at)).first
     end
 
-    def status_summary
-      latest = latest_measurement
+    def to_api_v2
       {
         id: id,
         name: name,
         address: address,
-        port: port,
-        test_type: test_type,
-        dns_query_hostname: dns_query_hostname,
         enabled: enabled,
-        randomness_percent: randomness_percent || 0,
-        reachable: latest&.reachable || false,
-        latency_ms: latest&.latency_ms,
-        jitter_ms: latest&.jitter_ms,
-        last_tested: latest&.tested_at&.iso8601,
-        next_test_at: next_test_at&.iso8601
+        randomness_percent: randomness_percent || 5,
+        tests: tests.map(&:to_api_v2),
+        overall_status: overall_status,
+        created_at: created_at.iso8601,
+        updated_at: updated_at.iso8601
       }
     end
 
-    def calculate_next_test_time(base_interval)
-      variation_seconds = (base_interval * (randomness_percent || 0) / 100.0).to_i
-      random_offset = rand(-variation_seconds..variation_seconds)
-      Time.now + base_interval + random_offset
+    # V1 API compatibility (deprecated)
+    def status_summary
+      # Include all tests and their statuses for multi-test dashboard display
+      enabled_tests = tests_dataset.where(enabled: true).all
+
+      # Get latest measurements for all enabled tests
+      latest_measurements = enabled_tests.map(&:latest_measurement).compact
+
+      # Determine overall badge status based on all enabled tests
+      test_statuses = enabled_tests.map(&:status)
+      has_success = test_statuses.include?('success')
+      has_degraded = test_statuses.include?('degraded')
+      has_failure = test_statuses.include?('failure')
+      all_never = test_statuses.all? { |s| s == 'never' }
+      all_failed = test_statuses.all? { |s| s == 'failure' || s == 'never' }
+
+      # Badge status: UP if any test succeeds, DOWN if all tests failed
+      badge_status = (has_success || has_degraded) ? 'up' : 'down'
+
+      # Badge color: green if all success, yellow if mixed, red if all failed
+      if all_failed
+        badge_color = 'red'
+      elsif has_degraded || has_failure
+        badge_color = 'yellow'
+      else
+        badge_color = 'green'
+      end
+
+      # Calculate aggregate metrics
+      # Latency: average across all successful tests
+      successful_latencies = latest_measurements.select(&:reachable).map(&:latency_ms).compact
+      avg_latency = successful_latencies.any? ? (successful_latencies.sum / successful_latencies.size).round(2) : nil
+
+      # Jitter: only from ping test
+      ping_test = tests_dataset.where(test_type: 'ping').first
+      ping_measurement = ping_test&.latest_measurement
+      jitter = ping_measurement&.jitter_ms
+
+      # Last tested: most recent across all tests
+      last_tested_time = latest_measurements.map(&:tested_at).compact.max
+
+      # Next test: earliest next_test_at across all enabled tests
+      next_test_times = enabled_tests.map(&:next_test_at).compact
+      next_test_time = next_test_times.any? ? next_test_times.min : nil
+
+      {
+        id: id,
+        name: name,
+        address: address,
+        enabled: enabled,
+        randomness_percent: randomness_percent || 0,
+        reachable: badge_status == 'up',
+        latency_ms: avg_latency,
+        jitter_ms: jitter,
+        last_tested: last_tested_time&.iso8601,
+        next_test_at: next_test_time&.iso8601,
+        badge_status: badge_status,
+        badge_color: badge_color,
+        test_statuses: enabled_tests.map { |t| { test_type: t.test_type, status: t.status, status_color: t.status_color } }
+      }
     end
   end
 end

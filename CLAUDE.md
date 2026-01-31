@@ -75,3 +75,64 @@ Fixed several issues deploying to Docker:
 2. **sqlite3 native gem loading error** - Alpine's musl libc was incompatible with precompiled sqlite3 gems. Switched from `ruby:3.3-alpine` to `ruby:3.3-slim` (Debian-based) which uses glibc
 
 3. **Bundle config ownership** - Moved `bundle config` commands to run after `USER checker` to ensure correct file ownership
+
+### January 2025 - Multi-Test Architecture Refactoring
+
+**Status: Backend Complete (67%), Frontend & Testing Pending (33%)**
+
+Refactored from single-test-per-host to multiple-concurrent-tests-per-host architecture. Each host can now run ping, TCP, HTTP, and DNS tests simultaneously.
+
+#### Completed Work
+
+**Database & Models:**
+- Migration 007 (`db/migrations/007_refactor_to_multiple_tests.rb`) - Creates tests table, migrates data, handles UDP deprecation
+- New Test model (`app/models/test.rb`) - Validation, status tracking (success/failure/never), API serialization
+- Updated Host model (`app/models/host.rb`) - Removed test-specific fields, added tests association, v2 API support
+- Updated Measurement model (`app/models/measurement.rb`) - Queries work with Test table
+
+**Scheduler & Testers:**
+- Scheduler (`lib/checker/scheduler.rb`) - Queries Test table, runs multiple tests per host independently
+- Testers module (`lib/checker/testers.rb`) - Accepts Test objects instead of Host
+- Base tester (`lib/checker/testers/base.rb`) - Updated interface
+- HTTP tester (`lib/checker/testers/http.rb`) - Uses test.http_scheme field
+- DNS tester (`lib/checker/testers/dns.rb`) - Uses test.dns_query_hostname
+- **Removed** UDP tester - No reliable way to test generic UDP services
+- **Jitter** - Only ping tests calculate jitter (IPDV), removed from TCP/HTTP/DNS
+
+**API v2:**
+- New v2 routes (`app/routes/v2/hosts.rb`) with:
+  - Nested tests in responses
+  - `validate_immediately` flag for immediate test execution on save
+  - Automatic ping test creation for all hosts
+  - Full CRUD operations
+- v1 API deprecation headers added (6-month sunset)
+- Main app (`app/app.rb`) - Loads v2 routes, deprecation helper
+
+#### Key Design Decisions
+
+1. **Tests table** - Each test has own next_test_at for per-test scheduling
+2. **Ping always required** - Application-layer enforcement (frontend + API validation)
+3. **HTTP scheme** - Separate http_scheme field ('http'/'https') removes port ambiguity
+4. **Jitter** - Only ping tests (5-ping IPDV), removed from other protocols
+5. **Measurements** - Table unchanged, still uses host_id + test_type
+
+#### Remaining Work (Frontend & Testing)
+
+**Frontend (3 tasks):**
+- Update hosts.erb with multi-test form UI
+- Update JavaScript for multiple tests & immediate validation
+- Add CSS for test badges and validation results
+
+**Testing (4 tasks):**
+- Test migration with sample data
+- Test scheduler functionality
+- Test API v2 endpoints
+- Test frontend UI flows
+
+#### Migration Notes
+
+- Migration 007 creates tests table with composite index on (enabled, next_test_at) for scheduler performance
+- Auto-creates ping test for all hosts
+- UDP hosts converted to ping-only (logged during migration)
+- All historical measurements preserved
+- **Rollback is lossy** - only first test per host restored on rollback

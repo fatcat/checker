@@ -198,20 +198,30 @@ const Checker = {
   },
 
   renderHostCard(host) {
-    const statusClass = host.reachable ? 'status-up' : 'status-down';
+    // Use badge_status and badge_color from multi-test logic
+    const badgeStatus = host.badge_status || (host.reachable ? 'up' : 'down');
+    const badgeColor = host.badge_color || (host.reachable ? 'green' : 'red');
+    const statusClass = badgeStatus === 'up' ? 'status-up' : 'status-down';
+    const badgeText = badgeStatus === 'up' ? 'UP' : 'DOWN';
+
+    // Determine badge CSS class based on color
+    let badgeClass = 'up';
+    if (badgeColor === 'yellow') {
+      badgeClass = 'degraded';
+    } else if (badgeColor === 'red') {
+      badgeClass = 'down';
+    }
+
     const latency = host.latency_ms ? `${host.latency_ms.toFixed(1)} ms` : 'N/A';
     const jitter = host.jitter_ms ? `${host.jitter_ms.toFixed(1)} ms` : 'N/A';
     const lastTested = host.last_tested ? this.formatRelativeTime(host.last_tested) : 'Never';
-    const testType = (host.test_type || 'ping').toUpperCase();
     const countdown = host.next_test_at ? this.formatCountdown(host.next_test_at) : '--';
 
     return `
       <a href="/hosts/${host.id}" class="host-card ${statusClass}">
         <div class="host-card-header">
           <div class="host-name">${this.escapeHtml(host.name)}</div>
-          <span class="test-type-badge">${testType}</span>
         </div>
-        <div class="host-address">${this.escapeHtml(host.address)}${host.port ? ':' + host.port : ''}</div>
         <div class="host-metrics">
           <div class="metric">
             <span class="metric-label">Latency</span>
@@ -223,7 +233,7 @@ const Checker = {
           </div>
           <div class="metric">
             <span class="metric-label">Status</span>
-            <span class="status-badge ${host.reachable ? 'up' : 'down'}">${host.reachable ? 'UP' : 'DOWN'}</span>
+            <span class="status-badge ${badgeClass}">${badgeText}</span>
           </div>
         </div>
         <div class="host-footer">

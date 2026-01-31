@@ -7,7 +7,7 @@ module Checker
     class Ping < Base
       def run
         ping_count = config[:ping_count] || 5
-        ping_timeout = config[:ping_timeout] || 5
+        ping_timeout = [config[:ping_timeout] || 5, 10].min # Max 10 seconds
 
         latencies = execute_ping(ping_count, ping_timeout)
 

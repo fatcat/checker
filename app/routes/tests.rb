@@ -8,15 +8,12 @@ module Checker
       json results: results
     end
 
-    # Run test for a specific host
+    # Run test for a specific host (v1 - deprecated, redirects to v2 endpoint)
     post '/api/tests/run/:id' do
-      host = Host[params[:id].to_i]
-      halt 404, json(error: 'Host not found') unless host
-
-      tester = Testers.for(host, build_test_config)
-      result = tester.run
-
-      json result: result
+      host_id = params[:id].to_i
+      # Redirect to v2 API which handles multi-test architecture
+      results = Checker.scheduler.run_test_for_host(host_id)
+      json(host_id: host_id, results: results)
     end
 
     # Get scheduler status
@@ -32,10 +29,11 @@ module Checker
 
     def build_test_config
       {
-        ping_count: Configuration.get('ping_count').to_i,
-        ping_timeout: Configuration.get('ping_timeout_seconds').to_i,
-        tcp_timeout: Configuration.get('tcp_timeout_seconds').to_i,
-        http_timeout: Configuration.get('http_timeout_seconds').to_i
+        ping_count: (Configuration.get('ping_count') || 5).to_i,
+        ping_timeout: (Configuration.get('ping_timeout_seconds') || 5).to_i,
+        tcp_timeout: (Configuration.get('tcp_timeout_seconds') || 5).to_i,
+        http_timeout: (Configuration.get('http_timeout_seconds') || 10).to_i,
+        dns_timeout: (Configuration.get('dns_timeout_seconds') || 5).to_i
       }
     end
   end

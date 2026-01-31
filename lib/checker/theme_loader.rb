@@ -13,7 +13,7 @@ module Checker
 
     class << self
       def themes_dir
-        @themes_dir ||= File.join(Dir.pwd, 'themes')
+        @themes_dir ||= File.expand_path('../../themes', __dir__)
       end
 
       def load_all

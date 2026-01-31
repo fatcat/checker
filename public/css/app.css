@@ -455,6 +455,11 @@ body {
   color: var(--color-success);
 }
 
+.status-badge.degraded {
+  background-color: rgba(255, 193, 7, 0.2);
+  color: var(--color-warning);
+}
+
 .status-badge.down {
   background-color: rgba(220, 53, 69, 0.2);
   color: var(--color-danger);
@@ -564,5 +569,562 @@ a:hover {
 
   .host-metrics {
     flex-wrap: wrap;
+  }
+}
+
+/* Multi-Test Form UI Styles */
+
+/* Form sections */
+.form-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background-color: var(--color-surface-hover);
+  border-radius: var(--border-radius);
+}
+
+.form-section h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+}
+
+.form-section > .form-hint {
+  margin-bottom: 1rem;
+}
+
+/* Test configuration rows */
+.test-config-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.5rem 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  border-left: 3px solid var(--color-border);
+}
+
+.test-config-row.test-config-ping {
+  border-left-color: var(--color-info);
+  grid-template-rows: auto;
+}
+
+.test-config-row.test-config-tcp {
+  border-left-color: var(--color-warning);
+}
+
+.test-config-row.test-config-http {
+  border-left-color: var(--color-success);
+}
+
+.test-config-row.test-config-dns {
+  border-left-color: var(--color-accent);
+}
+
+/* Test checkbox in first column */
+.test-config-row .test-checkbox {
+  grid-column: 1;
+  grid-row: 1;
+  margin-bottom: 0;
+}
+
+/* Ping checkbox should not be grayed out */
+.test-config-ping .test-checkbox input[type="checkbox"],
+.test-config-ping .test-checkbox label {
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Toggle switch in third column, first row, right-aligned */
+.test-config-row .toggle-switch {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+/* Hide the default checkbox */
+.toggle-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider track */
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-border);
+  border-radius: 24px;
+  transition: background-color 0.3s ease;
+}
+
+/* The slider knob */
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+/* Checked state - green background */
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--color-success);
+}
+
+/* Move knob to the right when checked */
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+/* Hover effect */
+.toggle-slider:hover {
+  opacity: 0.9;
+}
+
+/* Disabled state */
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-border);
+}
+
+.toggle-switch input:disabled:checked + .toggle-slider {
+  background-color: var(--color-border);
+}
+
+/* Test fields span across columns on second row */
+.test-config-row .test-fields {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Hide empty ping test fields */
+.test-config-ping .test-fields:empty {
+  display: none;
+}
+
+.test-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.test-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.test-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.test-checkbox label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+/* Test fields container */
+.test-fields {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.test-fields .field-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.test-fields .field-group label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.test-fields .field-group input[type="text"],
+.test-fields .field-group input[type="number"] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.test-fields .field-group input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.test-fields .field-group small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+/* Toggle labels */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-background);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--transition);
+}
+
+.toggle-label:hover {
+  border-color: var(--color-accent);
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.toggle-text {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+/* Radio groups */
+.radio-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  transition: all var(--transition);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0;
+}
+
+.radio-group label:hover {
+  border-color: var(--color-accent);
+}
+
+.radio-group input[type="radio"] {
+  cursor: pointer;
+}
+
+.radio-group input[type="radio"]:checked + label,
+.radio-group label:has(input[type="radio"]:checked) {
+  border-color: var(--color-accent);
+  background-color: rgba(0, 191, 99, 0.1);
+  color: var(--color-accent);
+}
+
+/* Tooltip icon */
+.tooltip-icon {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  border-radius: 50%;
+  text-align: center;
+  line-height: 18px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: help;
+  margin-left: 0.25rem;
+  border: 1px solid var(--color-border);
+  transition: all var(--transition);
+}
+
+.tooltip-icon:hover {
+  background-color: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+
+/* Test badges in table */
+.test-badge {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+}
+
+.test-badge-green {
+  background-color: rgba(0, 191, 99, 0.2);
+  color: var(--color-success);
+  border: 1px solid rgba(0, 191, 99, 0.3);
+}
+
+.test-badge-red {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: var(--color-danger);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.test-badge-gray {
+  background-color: rgba(128, 128, 128, 0.2);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+}
+
+.test-badge-yellow {
+  background-color: rgba(255, 193, 7, 0.2);
+  color: var(--color-warning);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+/* Validation results */
+.validation-results {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+}
+
+.validation-results h4 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.validation-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: var(--color-background);
+  border-radius: var(--border-radius);
+  border-left: 3px solid transparent;
+}
+
+.validation-item:last-child {
+  margin-bottom: 0;
+}
+
+.validation-success {
+  border-left-color: var(--color-success);
+}
+
+.validation-failure {
+  border-left-color: var(--color-danger);
+}
+
+.validation-icon {
+  font-size: 1.2rem;
+  font-weight: bold;
+  width: 24px;
+  text-align: center;
+}
+
+.validation-success .validation-icon {
+  color: var(--color-success);
+}
+
+.validation-failure .validation-icon {
+  color: var(--color-danger);
+}
+
+.validation-type {
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 60px;
+  color: var(--color-text);
+}
+
+.validation-status {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  min-width: 70px;
+}
+
+.validation-latency {
+  font-size: 0.85rem;
+  color: var(--color-accent);
+  font-family: monospace;
+  margin-left: auto;
+}
+
+.error-detail {
+  flex-basis: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(220, 53, 69, 0.1);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--color-danger);
+  font-family: monospace;
+}
+
+/* Form status messages */
+.form-status {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.form-status-info {
+  background-color: rgba(23, 162, 184, 0.2);
+  color: var(--color-info);
+  border: 1px solid rgba(23, 162, 184, 0.3);
+}
+
+.form-status-success {
+  background-color: rgba(0, 191, 99, 0.2);
+  color: var(--color-success);
+  border: 1px solid rgba(0, 191, 99, 0.3);
+}
+
+.form-status-error {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: var(--color-danger);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+/* Continue button */
+.btn-success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Muted and bright success button states */
+.btn-success-muted {
+  background-color: rgba(0, 191, 99, 0.5);
+  color: white;
+}
+
+.btn-success-muted:hover:not(:disabled) {
+  background-color: rgba(0, 191, 99, 0.6);
+}
+
+.btn-success-bright {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.btn-success-bright:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Form container */
+.form-container {
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-border);
+}
+
+.host-form {
+  max-width: 800px;
+}
+
+/* Form actions */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Page header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: var(--color-text);
+}
+
+/* Responsive adjustments for multi-test form */
+@media (max-width: 768px) {
+  .test-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .test-fields .field-group {
+    min-width: 100%;
+  }
+
+  .radio-group {
+    flex-direction: column;
+  }
+
+  .validation-item {
+    flex-wrap: wrap;
+  }
+
+  .validation-latency {
+    margin-left: 0;
+    flex-basis: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions button {
+    width: 100%;
   }
 }

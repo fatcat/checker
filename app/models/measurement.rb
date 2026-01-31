@@ -50,15 +50,19 @@ module Checker
     def self.latency_series_by_type(range: '24h', start_time: nil, end_time: nil)
       since, until_time = parse_time_range(range: range, start_time: start_time, end_time: end_time)
 
-      # Group hosts by test type
-      hosts_by_type = Host.enabled.all.group_by(&:test_type)
+      # Group tests by test type
+      tests_by_type = Test.enabled.where(host_id: Host.enabled.select(:id)).all.group_by(&:test_type)
 
       result = {}
-      hosts_by_type.each do |test_type, hosts|
-        result[test_type] = hosts.map do |host|
-          measurements = for_host(host.id, since: since, until_time: until_time).all
+      tests_by_type.each do |test_type, tests|
+        result[test_type] = tests.map do |test|
+          measurements = where(host_id: test.host_id, test_type: test_type)
+            .where { tested_at >= since }
+            .where { tested_at <= until_time }
+            .order(:tested_at)
+            .all
           {
-            name: host.name,
+            name: "#{test.host.name} (#{test_type})",
             data: measurements.map do |m|
               [m.tested_at.to_i * 1000, m.latency_ms&.round(2)]
             end
@@ -70,16 +74,27 @@ module Checker
     end
 
     def self.test_types_with_hosts
-      Host.enabled.all.map(&:test_type).uniq.sort
+      Test.enabled.where(host_id: Host.enabled.select(:id)).select_map(:test_type).uniq.sort
     end
 
     def self.jitter_series(range: '24h', start_time: nil, end_time: nil)
       since, until_time = parse_time_range(range: range, start_time: start_time, end_time: end_time)
 
-      Host.enabled.map do |host|
-        measurements = for_host(host.id, since: since, until_time: until_time).all
+      # Only include hosts with enabled ping tests (jitter is only calculated for ping)
+      ping_tests = Test.where(test_type: 'ping', enabled: true)
+        .where(host_id: Host.enabled.select(:id))
+        .all
+
+      ping_tests.map do |test|
+        # Only fetch ping test measurements
+        measurements = where(host_id: test.host_id, test_type: 'ping')
+          .where { tested_at >= since }
+          .where { tested_at <= until_time }
+          .order(:tested_at)
+          .all
+
         {
-          name: host.name,
+          name: test.host.name,
           data: measurements.map do |m|
             [m.tested_at.to_i * 1000, m.jitter_ms&.round(2)]
           end

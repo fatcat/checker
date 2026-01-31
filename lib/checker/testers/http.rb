@@ -8,52 +8,34 @@ module Checker
   module Testers
     class Http < Base
       def run
-        http_timeout = config[:http_timeout] || 10
-        sample_count = config[:sample_count] || 3
+        http_timeout = [config[:http_timeout] || 10, 10].min # Max 10 seconds
 
-        latencies = []
-        statuses = []
-        errors = []
+        result = measure_request(http_timeout)
 
-        sample_count.times do
-          result = measure_request(http_timeout)
-          if result[:success]
-            latencies << result[:latency_ms]
-            statuses << result[:status]
-          else
-            errors << result[:error]
-          end
-        end
+        if result[:success]
+          # Consider reachable if we got a 2xx status code
+          reachable = result[:status] >= 200 && result[:status] < 300
 
-        if latencies.empty?
+          record_result(
+            reachable: reachable,
+            latency_ms: result[:latency_ms].round(3),
+            http_status: result[:status],
+            error_message: reachable ? nil : "HTTP status #{result[:status]} (expected 2xx)"
+          )
+
+          {
+            reachable: reachable,
+            latency_ms: result[:latency_ms].round(3),
+            http_status: result[:status]
+          }
+        else
           record_result(
             reachable: false,
-            error_message: errors.first || "Request failed"
+            error_message: result[:error] || "Request failed"
           )
-          return { reachable: false, error: errors.first }
+
+          { reachable: false, error: result[:error] }
         end
-
-        avg_latency = latencies.sum / latencies.size
-        jitter = calculate_ipdv(latencies)
-        last_status = statuses.last
-        # Consider reachable if we got any 2xx status code
-        reachable = statuses.any? { |s| s >= 200 && s < 300 }
-
-        record_result(
-          reachable: reachable,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3),
-          http_status: last_status,
-          error_message: reachable ? nil : "HTTP status #{last_status} (expected 2xx)"
-        )
-
-        {
-          reachable: reachable,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3),
-          http_status: last_status,
-          samples: latencies.size
-        }
       end
 
       private
@@ -89,27 +71,16 @@ module Checker
       end
 
       def build_url
-        scheme = port == 443 ? 'https' : 'http'
-        host = address
+        scheme = test.http_scheme || (port == 443 ? 'https' : 'http')
+        host_address = address
 
         if port && ![80, 443].include?(port)
-          "#{scheme}://#{host}:#{port}"
+          "#{scheme}://#{host_address}:#{port}"
         else
-          "#{scheme}://#{host}"
+          "#{scheme}://#{host_address}"
         end
       end
 
-      def calculate_ipdv(latencies)
-        return 0.0 if latencies.size < 2
-
-        delay_variations = []
-        (1...latencies.size).each do |i|
-          variation = (latencies[i] - latencies[i - 1]).abs
-          delay_variations << variation
-        end
-
-        delay_variations.sum / delay_variations.size
-      end
     end
   end
 end

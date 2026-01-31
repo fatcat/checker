@@ -19,44 +19,110 @@
       </div>
 
       <div class="form-group">
-        <label for="host-test-type">Test Type</label>
-        <select id="host-test-type" onchange="Hosts.toggleConditionalFields()">
-          <option value="ping">Ping</option>
-          <option value="tcp">TCP Port</option>
-          <option value="udp">UDP Port</option>
-          <option value="http">HTTP</option>
-          <option value="dns">DNS Resolution</option>
-        </select>
-      </div>
-
-      <div class="form-group" id="port-group" style="display: none;">
-        <label for="host-port">Port</label>
-        <input type="number" id="host-port" placeholder="e.g., 80, 443" min="1" max="65535">
-      </div>
-
-      <div class="form-group" id="dns-hostname-group" style="display: none;">
-        <label for="host-dns-hostname">Hostname to Resolve</label>
-        <input type="text" id="host-dns-hostname" placeholder="e.g., google.com">
-        <small class="form-hint">The hostname this DNS server should resolve. You are responsible for ensuring it's resolvable.</small>
-      </div>
-
-      <div class="form-group">
-        <label for="host-randomness">Test Timing Randomness (%)</label>
-        <input type="number" id="host-randomness" value="0" min="0" max="50" step="1">
-        <small class="form-hint">Adds variation to test timing. 5% on a 5-min interval = +/- 15 seconds.</small>
-      </div>
-
-      <div class="form-group">
-        <label>
-          <input type="checkbox" id="host-enabled" checked>
-          Enabled
+        <label for="host-randomness">
+          Test Timing Variability (%)
+          <span class="tooltip-icon" title="Adds timing variation to prevent all tests running simultaneously. Example: 5% on a 5-minute interval = ±15 seconds randomness.">?</span>
         </label>
+        <input type="number" id="host-randomness" value="5" min="0" max="50" step="1">
+        <small class="form-hint">Recommended: 5%. Prevents thundering herd when scheduling tests.</small>
+      </div>
+
+      <!-- Test Configuration Section -->
+      <div class="form-section">
+        <h3>Test Configuration</h3>
+        <p class="form-hint">Ping test is always enabled for jitter measurement. Select additional tests below.</p>
+
+        <!-- Ping Test (Always Enabled) -->
+        <div class="test-config-row test-config-ping">
+          <div class="test-checkbox">
+            <input type="checkbox" id="test-ping" checked>
+            <label for="test-ping">Ping (ICMP)</label>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="ping-enabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="test-fields"></div>
+        </div>
+
+        <!-- TCP Test -->
+        <div class="test-config-row test-config-tcp">
+          <div class="test-checkbox">
+            <input type="checkbox" id="test-tcp" onchange="Hosts.toggleTestFields('tcp')">
+            <label for="test-tcp">TCP Port</label>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="tcp-enabled" checked disabled>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="test-fields" id="tcp-fields" style="display: none;">
+            <div class="field-group">
+              <label for="tcp-port">Port</label>
+              <input type="number" id="tcp-port" placeholder="e.g., 22, 80, 443" min="1" max="65535">
+            </div>
+          </div>
+        </div>
+
+        <!-- HTTP Test -->
+        <div class="test-config-row test-config-http">
+          <div class="test-checkbox">
+            <input type="checkbox" id="test-http" onchange="Hosts.toggleTestFields('http')">
+            <label for="test-http">HTTP</label>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="http-enabled" checked disabled>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="test-fields" id="http-fields" style="display: none;">
+            <div class="field-group">
+              <label>Scheme & Port</label>
+              <div class="radio-group">
+                <label>
+                  <input type="radio" name="http-scheme" value="http" checked>
+                  HTTP (80)
+                </label>
+                <label>
+                  <input type="radio" name="http-scheme" value="https">
+                  HTTPS (443)
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DNS Test -->
+        <div class="test-config-row test-config-dns">
+          <div class="test-checkbox">
+            <input type="checkbox" id="test-dns" onchange="Hosts.toggleTestFields('dns')">
+            <label for="test-dns">DNS Resolution</label>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dns-enabled" checked disabled>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="test-fields" id="dns-fields" style="display: none;">
+            <div class="field-group">
+              <label for="dns-hostname">Hostname to Resolve</label>
+              <input type="text" id="dns-hostname" placeholder="e.g., google.com">
+              <small class="form-hint">Hostname this DNS server should resolve</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Validation Results Area (shown after save) -->
+      <div id="validation-results" class="validation-results" style="display: none;">
+        <h4>Test Validation Results</h4>
+        <div id="validation-list"></div>
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-success-muted" id="save-btn">Save & Test</button>
         <button type="button" class="btn btn-secondary" onclick="Hosts.hideForm()">Cancel</button>
+        <button type="button" class="btn btn-success" id="continue-btn" style="display: none;" onclick="Hosts.hideForm()">Continue</button>
       </div>
+
+      <div id="form-status" class="form-status"></div>
     </form>
   </div>
 
@@ -65,15 +131,14 @@
       <tr>
         <th>Name</th>
         <th>Address</th>
-        <th>Type</th>
-        <th>Port</th>
+        <th>Tests</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody id="hosts-tbody">
       <tr>
-        <td colspan="6" class="loading">Loading hosts...</td>
+        <td colspan="5" class="loading">Loading hosts...</td>
       </tr>
     </tbody>
   </table>
@@ -81,9 +146,47 @@
 
 <script>
 const Hosts = {
+  formChanged: false,
+
   init() {
     this.loadHosts();
     document.getElementById('host-form').addEventListener('submit', (e) => this.saveHost(e));
+
+    // Ensure ping checkbox always stays checked
+    document.getElementById('test-ping').addEventListener('change', function(e) {
+      if (!this.checked) {
+        this.checked = true;
+      }
+    });
+
+    // Track form changes
+    this.initFormChangeTracking();
+  },
+
+  initFormChangeTracking() {
+    const form = document.getElementById('host-form');
+    const saveBtn = document.getElementById('save-btn');
+
+    // Track changes on all form inputs
+    form.addEventListener('input', () => {
+      this.formChanged = true;
+      saveBtn.classList.remove('btn-success-muted');
+      saveBtn.classList.add('btn-success-bright');
+    });
+
+    // Track changes on checkboxes
+    form.addEventListener('change', () => {
+      this.formChanged = true;
+      saveBtn.classList.remove('btn-success-muted');
+      saveBtn.classList.add('btn-success-bright');
+    });
+  },
+
+  resetSaveButton() {
+    const saveBtn = document.getElementById('save-btn');
+    saveBtn.classList.remove('btn-success-bright');
+    saveBtn.classList.add('btn-success-muted');
+    this.formChanged = false;
   },
 
   async loadHosts() {
@@ -95,11 +198,11 @@ const Hosts = {
       if (data.hosts && data.hosts.length > 0) {
         tbody.innerHTML = data.hosts.map(host => this.renderHostRow(host)).join('');
       } else {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">No hosts configured.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">No hosts configured.</td></tr>';
       }
     } catch (error) {
       console.error('Failed to load hosts:', error);
-      tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load hosts.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">Failed to load hosts.</td></tr>';
     }
   },
 
@@ -108,12 +211,29 @@ const Hosts = {
       ? '<span class="status-badge up">Enabled</span>'
       : '<span class="status-badge down">Disabled</span>';
 
+    // Render test badges with color coding
+    const testBadges = host.tests.map(test => {
+      const colorClass = this.getStatusColorClass(test.status);
+      const enabledText = test.enabled ? '' : ' (disabled)';
+      let testLabel = test.test_type.toUpperCase();
+
+      // Add extra info for specific tests
+      if (test.test_type === 'tcp' && test.port) {
+        testLabel += `:${test.port}`;
+      } else if (test.test_type === 'http') {
+        testLabel += ` ${test.http_scheme || 'http'}:${test.port || 80}`;
+      } else if (test.test_type === 'dns') {
+        testLabel += ` (${test.dns_query_hostname || '?'})`;
+      }
+
+      return `<span class="test-badge test-badge-${colorClass}">${testLabel}${enabledText}</span>`;
+    }).join(' ');
+
     return `
       <tr data-id="${host.id}">
         <td>${this.escapeHtml(host.name)}</td>
         <td>${this.escapeHtml(host.address)}</td>
-        <td>${host.test_type.toUpperCase()}</td>
-        <td>${host.port || '-'}</td>
+        <td>${testBadges}</td>
         <td>${statusBadge}</td>
         <td>
           <button class="btn btn-secondary" onclick="Hosts.editHost(${host.id})">Edit</button>
@@ -123,43 +243,62 @@ const Hosts = {
     `;
   },
 
+  getStatusColorClass(status) {
+    switch(status) {
+      case 'success': return 'green';
+      case 'degraded': return 'yellow';
+      case 'failure': return 'red';
+      case 'never': return 'gray';
+      default: return 'gray';
+    }
+  },
+
   showAddForm() {
     document.getElementById('host-id').value = '';
     document.getElementById('host-form').reset();
+    document.getElementById('host-randomness').value = '5'; // Default to 5%
+    document.getElementById('validation-results').style.display = 'none';
+    document.getElementById('continue-btn').style.display = 'none';
+    document.getElementById('save-btn').disabled = false;
+    this.resetSaveButton();
+
+    // Reset all test checkboxes and fields
+    ['tcp', 'http', 'dns'].forEach(type => {
+      document.getElementById(`test-${type}`).checked = false;
+      this.toggleTestFields(type);
+    });
+
     document.getElementById('host-form-container').style.display = 'block';
-    this.toggleConditionalFields();
   },
 
   hideForm() {
     document.getElementById('host-form-container').style.display = 'none';
+    this.loadHosts(); // Refresh the table
   },
 
-  toggleConditionalFields() {
-    const testType = document.getElementById('host-test-type').value;
-    const portGroup = document.getElementById('port-group');
-    const portInput = document.getElementById('host-port');
-    const dnsGroup = document.getElementById('dns-hostname-group');
-    const dnsInput = document.getElementById('host-dns-hostname');
+  toggleTestFields(testType) {
+    const checkbox = document.getElementById(`test-${testType}`);
+    const fields = document.getElementById(`${testType}-fields`);
+    const enabledToggle = document.getElementById(`${testType}-enabled`);
 
-    // Port field for tcp, udp, http
-    if (['tcp', 'udp', 'http'].includes(testType)) {
-      portGroup.style.display = 'block';
-      portInput.required = true;
-      if (testType === 'http' && !portInput.value) {
-        portInput.value = '443';
+    if (checkbox.checked) {
+      fields.style.display = 'flex';
+      enabledToggle.disabled = false;
+      // Set required attribute on inputs when enabled
+      if (testType === 'tcp') {
+        document.getElementById('tcp-port').required = true;
+      } else if (testType === 'dns') {
+        document.getElementById('dns-hostname').required = true;
       }
     } else {
-      portGroup.style.display = 'none';
-      portInput.required = false;
-    }
-
-    // DNS hostname field for dns
-    if (testType === 'dns') {
-      dnsGroup.style.display = 'block';
-      dnsInput.required = true;
-    } else {
-      dnsGroup.style.display = 'none';
-      dnsInput.required = false;
+      fields.style.display = 'none';
+      enabledToggle.disabled = true;
+      // Remove required attribute
+      if (testType === 'tcp') {
+        document.getElementById('tcp-port').required = false;
+      } else if (testType === 'dns') {
+        document.getElementById('dns-hostname').required = false;
+      }
     }
   },
 
@@ -171,13 +310,41 @@ const Hosts = {
       document.getElementById('host-id').value = host.id;
       document.getElementById('host-name').value = host.name;
       document.getElementById('host-address').value = host.address;
-      document.getElementById('host-test-type').value = host.test_type;
-      document.getElementById('host-port').value = host.port || '';
-      document.getElementById('host-dns-hostname').value = host.dns_query_hostname || '';
-      document.getElementById('host-randomness').value = host.randomness_percent || 0;
-      document.getElementById('host-enabled').checked = host.enabled;
+      document.getElementById('host-randomness').value = host.randomness_percent || 5;
+      document.getElementById('validation-results').style.display = 'none';
+      document.getElementById('continue-btn').style.display = 'none';
+      document.getElementById('save-btn').disabled = false;
+      this.resetSaveButton();
 
-      this.toggleConditionalFields();
+      // Reset all test checkboxes first
+      ['tcp', 'http', 'dns'].forEach(type => {
+        document.getElementById(`test-${type}`).checked = false;
+        this.toggleTestFields(type);
+      });
+
+      // Load tests
+      host.tests.forEach(test => {
+        if (test.test_type === 'ping') {
+          document.getElementById('ping-enabled').checked = test.enabled;
+        } else if (test.test_type === 'tcp') {
+          document.getElementById('test-tcp').checked = true;
+          document.getElementById('tcp-port').value = test.port || '';
+          document.getElementById('tcp-enabled').checked = test.enabled;
+          this.toggleTestFields('tcp');
+        } else if (test.test_type === 'http') {
+          document.getElementById('test-http').checked = true;
+          const scheme = test.http_scheme || 'https';
+          document.querySelector(`input[name="http-scheme"][value="${scheme}"]`).checked = true;
+          document.getElementById('http-enabled').checked = test.enabled;
+          this.toggleTestFields('http');
+        } else if (test.test_type === 'dns') {
+          document.getElementById('test-dns').checked = true;
+          document.getElementById('dns-hostname').value = test.dns_query_hostname || '';
+          document.getElementById('dns-enabled').checked = test.enabled;
+          this.toggleTestFields('dns');
+        }
+      });
+
       document.getElementById('host-form-container').style.display = 'block';
     } catch (error) {
       console.error('Failed to load host:', error);
@@ -189,17 +356,60 @@ const Hosts = {
     e.preventDefault();
 
     const id = document.getElementById('host-id').value;
+    const tests = [];
+
+    // Always include ping test
+    tests.push({
+      test_type: 'ping',
+      enabled: document.getElementById('ping-enabled').checked
+    });
+
+    // Add TCP test if checked
+    if (document.getElementById('test-tcp').checked) {
+      tests.push({
+        test_type: 'tcp',
+        port: parseInt(document.getElementById('tcp-port').value),
+        enabled: document.getElementById('tcp-enabled').checked
+      });
+    }
+
+    // Add HTTP test if checked
+    if (document.getElementById('test-http').checked) {
+      const scheme = document.querySelector('input[name="http-scheme"]:checked').value;
+      const port = scheme === 'https' ? 443 : 80;
+      tests.push({
+        test_type: 'http',
+        http_scheme: scheme,
+        port: port,
+        enabled: document.getElementById('http-enabled').checked
+      });
+    }
+
+    // Add DNS test if checked
+    if (document.getElementById('test-dns').checked) {
+      tests.push({
+        test_type: 'dns',
+        dns_query_hostname: document.getElementById('dns-hostname').value,
+        enabled: document.getElementById('dns-enabled').checked
+      });
+    }
+
     const data = {
       name: document.getElementById('host-name').value,
       address: document.getElementById('host-address').value,
-      test_type: document.getElementById('host-test-type').value,
-      port: document.getElementById('host-port').value || null,
-      dns_query_hostname: document.getElementById('host-dns-hostname').value || null,
-      randomness_percent: parseInt(document.getElementById('host-randomness').value) || 0,
-      enabled: document.getElementById('host-enabled').checked
+      randomness_percent: parseInt(document.getElementById('host-randomness').value) || 5,
+      enabled: true,
+      tests: tests,
+      validate_immediately: true
     };
 
     try {
+      // Disable save button and show loading
+      const saveBtn = document.getElementById('save-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Testing...';
+      this.showStatus('Running validation tests...', 'info');
+
       const url = id ? `/api/hosts/${id}` : '/api/hosts';
       const method = id ? 'PUT' : 'POST';
 
@@ -210,20 +420,72 @@ const Hosts = {
       });
 
       if (response.ok) {
-        this.hideForm();
-        this.loadHosts();
+        const result = await response.json();
+
+        // Revert button to normal state
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Test';
+        this.resetSaveButton();
+
+        // Display validation results if present
+        if (result.validation_results) {
+          this.displayValidationResults(result.validation_results);
+          this.showStatus('Validation complete!', 'success');
+
+          // Show continue button
+          document.getElementById('continue-btn').style.display = 'inline-block';
+        } else {
+          this.showStatus('Host saved successfully!', 'success');
+          setTimeout(() => this.hideForm(), 1500);
+        }
       } else {
         const error = await response.json();
-        alert('Failed to save host: ' + (error.error || 'Unknown error'));
+        this.showStatus('Failed to save host: ' + (error.error || 'Unknown error'), 'error');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Test';
+        this.resetSaveButton();
       }
     } catch (error) {
       console.error('Failed to save host:', error);
-      alert('Failed to save host');
+      this.showStatus('Failed to save host: ' + error.message, 'error');
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('save-btn').textContent = 'Save & Test';
     }
   },
 
+  displayValidationResults(results) {
+    const container = document.getElementById('validation-results');
+    const list = document.getElementById('validation-list');
+
+    list.innerHTML = results.map(r => {
+      const statusClass = r.result.reachable ? 'success' : 'failure';
+      const statusIcon = r.result.reachable ? '✓' : '✗';
+      const latency = r.result.latency_ms ? `${r.result.latency_ms.toFixed(2)}ms` : 'N/A';
+      const errorMsg = r.result.error ? `<div class="error-detail">${this.escapeHtml(r.result.error)}</div>` : '';
+
+      return `
+        <div class="validation-item validation-${statusClass}">
+          <span class="validation-icon">${statusIcon}</span>
+          <span class="validation-type">${r.test_type.toUpperCase()}</span>
+          <span class="validation-status">${r.result.reachable ? 'Success' : 'Failed'}</span>
+          <span class="validation-latency">${latency}</span>
+          ${errorMsg}
+        </div>
+      `;
+    }).join('');
+
+    container.style.display = 'block';
+  },
+
+  showStatus(message, type) {
+    const status = document.getElementById('form-status');
+    status.textContent = message;
+    status.className = `form-status form-status-${type}`;
+    status.style.display = 'block';
+  },
+
   async deleteHost(id) {
-    if (!confirm('Are you sure you want to delete this host?')) return;
+    if (!confirm('Are you sure you want to delete this host? This will delete all associated tests and measurements.')) return;
 
     try {
       const response = await fetch(`/api/hosts/${id}`, { method: 'DELETE' });

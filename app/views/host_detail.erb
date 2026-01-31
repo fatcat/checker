@@ -17,15 +17,19 @@
     <div class="host-info-details">
       <div class="detail-item">
         <span class="detail-label">Address</span>
-        <span class="detail-value"><%= @host.address %><%= @host.port ? ":#{@host.port}" : '' %></span>
+        <span class="detail-value"><%= @host.address %></span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Test Type</span>
-        <span class="detail-value"><%= @host.test_type.upcase %></span>
+        <span class="detail-label">Tests Configured</span>
+        <span class="detail-value">
+          <% @host.tests.each do |test| %>
+            <span class="test-badge test-badge-<%= test.status_color %>"><%= test.test_type.upcase %></span>
+          <% end %>
+        </span>
       </div>
       <div class="detail-item">
-        <span class="detail-label">Status</span>
-        <span class="detail-value"><%= @host.enabled ? 'Enabled' : 'Disabled' %></span>
+        <span class="detail-label">Variability</span>
+        <span class="detail-value"><%= @host.randomness_percent || 0 %>%</span>
       </div>
     </div>
   </div>
@@ -235,12 +239,25 @@ const HostDetail = {
     return theme.startsWith('light-') ? 'light' : 'dark';
   },
 
-  init() {
+  async init() {
     this.bindEvents();
+    await this.loadHostInfo();
     this.loadStats();
     this.loadCharts();
     this.loadRecentTests();
     this.loadCurrentStatus();
+  },
+
+  async loadHostInfo() {
+    try {
+      const response = await fetch(`/api/hosts/${this.hostId}`);
+      const data = await response.json();
+      this.hostData = data;
+      this.hasPingTest = data.tests && data.tests.some(t => t.test_type === 'ping' && t.enabled);
+    } catch (error) {
+      console.error('Failed to load host info:', error);
+      this.hasPingTest = false;
+    }
   },
 
   bindEvents() {
@@ -290,10 +307,20 @@ const HostDetail = {
 
   async loadCharts() {
     const range = document.getElementById('time-range').value;
-    await Promise.all([
-      this.loadLatencyChart(range),
-      this.loadJitterChart(range)
-    ]);
+    const promises = [this.loadLatencyChart(range)];
+
+    if (this.hasPingTest) {
+      promises.push(this.loadJitterChart(range));
+    } else {
+      this.showJitterUnavailableMessage();
+    }
+
+    await Promise.all(promises);
+  },
+
+  showJitterUnavailableMessage() {
+    const container = document.getElementById('jitter-chart');
+    container.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--color-text-muted);">Jitter tracking requires an enabled ping test</div>';
   },
 
   async loadLatencyChart(range) {

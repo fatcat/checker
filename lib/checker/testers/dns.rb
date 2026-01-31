@@ -7,9 +7,9 @@ module Checker
   module Testers
     class Dns < Base
       def run
-        query_hostname = host[:dns_query_hostname] || host.dns_query_hostname
+        query_hostname = test.dns_query_hostname
         dns_server = address
-        dns_timeout = config[:dns_timeout] || 5
+        dns_timeout = [config[:dns_timeout] || 5, 10].min # Max 10 seconds
 
         unless query_hostname && !query_hostname.empty?
           result = { reachable: false, error_message: 'No query hostname configured' }
@@ -17,71 +17,75 @@ module Checker
           return result
         end
 
-        latencies = []
+        start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         resolved = false
         resolved_addresses = []
         error_msg = nil
 
-        # Perform multiple queries for jitter calculation
-        query_count = config[:dns_query_count] || 3
-
-        query_count.times do
-          start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-
+        # Use Thread-based timeout for more reliable interruption
+        query_thread = Thread.new do
           begin
-            Timeout.timeout(dns_timeout) do
-              resolver = Resolv::DNS.new(nameserver: [dns_server])
-              addresses = resolver.getaddresses(query_hostname)
+            # Create resolver with custom nameserver
+            resolver = Resolv::DNS.new(nameserver: [dns_server])
 
-              if addresses.any?
-                resolved = true
-                resolved_addresses = addresses.map(&:to_s)
-              else
-                error_msg = "No addresses returned for #{query_hostname}"
-              end
+            addresses = resolver.getaddresses(query_hostname)
 
-              resolver.close
+            if addresses.any?
+              { success: true, addresses: addresses.map(&:to_s) }
+            else
+              { success: false, error: "No addresses returned for #{query_hostname}" }
             end
           rescue Resolv::ResolvError => e
-            error_msg = "DNS resolution failed: #{e.message}"
-          rescue Timeout::Error
-            error_msg = "DNS query timed out after #{dns_timeout}s"
+            { success: false, error: "DNS resolution failed: #{e.message}" }
           rescue StandardError => e
-            error_msg = "DNS error: #{e.message}"
+            { success: false, error: "DNS error: #{e.message}" }
+          ensure
+            resolver&.close rescue nil
           end
-
-          end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          latencies << ((end_time - start_time) * 1000).round(2)
-
-          break unless resolved
         end
 
-        if resolved
-          avg_latency = (latencies.sum / latencies.size).round(2)
-          jitter = calculate_ipdv(latencies)
+        # Wait for thread with timeout
+        result = query_thread.join(dns_timeout)
 
+        if result.nil?
+          # Timeout occurred - kill the thread
+          query_thread.kill
+          error_msg = "DNS query timed out after #{dns_timeout}s"
+        else
+          # Thread completed
+          thread_result = query_thread.value
+          if thread_result[:success]
+            resolved = true
+            resolved_addresses = thread_result[:addresses]
+          else
+            error_msg = thread_result[:error]
+          end
+        end
+
+        end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        latency_ms = [[end_time - start_time, dns_timeout].min * 1000, 0].max.round(2)
+
+        if resolved
           result = {
             reachable: true,
-            latency_ms: avg_latency,
-            jitter_ms: jitter,
+            latency_ms: latency_ms,
             resolved_addresses: resolved_addresses
           }
 
           record_result(
             reachable: true,
-            latency_ms: avg_latency,
-            jitter_ms: jitter
+            latency_ms: latency_ms
           )
         else
           result = {
             reachable: false,
-            latency_ms: latencies.first,
+            latency_ms: latency_ms,
             error_message: error_msg
           }
 
           record_result(
             reachable: false,
-            latency_ms: latencies.first,
+            latency_ms: latency_ms,
             error_message: error_msg
           )
         end
@@ -91,17 +95,6 @@ module Checker
 
       private
 
-      def calculate_ipdv(latencies)
-        return 0.0 if latencies.size < 2
-
-        delay_variations = []
-        (1...latencies.size).each do |i|
-          variation = (latencies[i] - latencies[i - 1]).abs
-          delay_variations << variation
-        end
-
-        (delay_variations.sum / delay_variations.size).round(2)
-      end
     end
   end
 end

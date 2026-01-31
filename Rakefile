@@ -47,19 +47,56 @@ namespace :db do
   desc 'Seed the database with sample data'
   task :seed do
     require_relative 'config/database'
+    require_relative 'config/application'
+    Dir['./app/models/*.rb'].each { |f| require f }
 
-    # Add some sample hosts
-    hosts = [
-      { name: 'Google DNS', address: '8.8.8.8', test_type: 'ping' },
-      { name: 'Cloudflare DNS', address: '1.1.1.1', test_type: 'ping' },
-      { name: 'Google', address: 'google.com', port: 443, test_type: 'http' }
+    # Sample hosts with their tests
+    sample_data = [
+      {
+        host: { name: 'Google DNS', address: '8.8.8.8', enabled: true, randomness_percent: 5 },
+        tests: [{ test_type: 'ping', enabled: true }]
+      },
+      {
+        host: { name: 'Cloudflare DNS', address: '1.1.1.1', enabled: true, randomness_percent: 5 },
+        tests: [{ test_type: 'ping', enabled: true }]
+      },
+      {
+        host: { name: 'Google', address: 'google.com', enabled: true, randomness_percent: 5 },
+        tests: [
+          { test_type: 'ping', enabled: true },
+          { test_type: 'http', enabled: true, port: 443, http_scheme: 'https' }
+        ]
+      },
+      {
+        host: { name: 'IBM DNS', address: '9.9.9.9', enabled: true, randomness_percent: 5 },
+        tests: [
+          { test_type: 'ping', enabled: true },
+          { test_type: 'dns', enabled: true, dns_query_hostname: 'www.ibm.com' }
+        ]
+      }
     ]
 
-    hosts.each do |host|
-      DB[:hosts].insert_ignore.insert(host.merge(created_at: Time.now, updated_at: Time.now))
+    DB.transaction do
+      sample_data.each do |data|
+        # Create host
+        host_id = DB[:hosts].insert(
+          data[:host].merge(created_at: Time.now, updated_at: Time.now)
+        )
+
+        # Create tests for this host
+        data[:tests].each do |test|
+          DB[:tests].insert(
+            test.merge(
+              host_id: host_id,
+              created_at: Time.now,
+              updated_at: Time.now
+            )
+          )
+        end
+      end
     end
 
-    puts "Seeded #{hosts.count} sample hosts"
+    puts "Seeded #{sample_data.count} sample hosts with multiple tests"
   end
 end
 
@@ -88,10 +125,11 @@ namespace :tests do
     require_relative 'lib/checker'
 
     config = {
-      ping_count: Checker::Configuration.get('ping_count').to_i,
-      ping_timeout: Checker::Configuration.get('ping_timeout_seconds').to_i,
-      tcp_timeout: Checker::Configuration.get('tcp_timeout_seconds').to_i,
-      http_timeout: Checker::Configuration.get('http_timeout_seconds').to_i
+      ping_count: (Checker::Configuration.get('ping_count') || 5).to_i,
+      ping_timeout: (Checker::Configuration.get('ping_timeout_seconds') || 5).to_i,
+      tcp_timeout: (Checker::Configuration.get('tcp_timeout_seconds') || 5).to_i,
+      http_timeout: (Checker::Configuration.get('http_timeout_seconds') || 10).to_i,
+      dns_timeout: (Checker::Configuration.get('dns_timeout_seconds') || 5).to_i
     }
 
     results = Checker::Testers.run_all(config)
