@@ -1,0 +1,102 @@
+# Network Monitoring Application
+
+Create a self-hosted network monitoring web application that tests host availability and displays performance metrics.
+
+## Tech Stack
+- **Backend**: Ruby 3.3+ with Sinatra 4.x
+- **Database**: SQLite3 with Sequel ORM
+- **Server**: Puma
+- **Frontend**: ERB templates, vanilla JavaScript, Chart.js for visualizations
+- **Scheduler**: rufus-scheduler for background tasks
+- **Deployment**: Docker with docker-compose
+
+## Core Features
+
+### 1. Host Management
+- CRUD operations for network hosts (name, IP/hostname, enabled status)
+- Each host supports multiple test types:
+  - **Ping (ICMP)**: Measures latency
+  - **TCP**: Port connectivity testing, measures latency
+  - **HTTP/HTTPS**: Web endpoint monitoring with status codes, measures latency
+  - **DNS**: DNS resolution testing, measures latency
+	- **Jitter**: An IPDV Jitter calculation (RFC 3393) using ICMP is performed separatedly if the jitter test is enabled for a host
+- Randomness setting (0-50%) to vary test timing and prevent synchronized testing
+
+### 2. Automated Testing
+- Background scheduler runs tests at configurable intervals (default: 5 minutes)
+- Per-test scheduling with independent `next_test_at` timestamps
+- Includes a variability factor so that tests do not begin all at the same time. The time interval to the next test should be recalculated each time a test is run. The variability is in terms of percent, so that a 5% variability factor on a 5 minute base timer would alter the base timer randomly by up to +-15 seconds
+- Store measurements: timestamp, test type, reachable (boolean), latency_ms, http_status, jitter
+
+### 3. Dashboard & Visualization
+- Real-time status overview showing all hosts and their current state
+- Interactive charts using Chart.js:
+  - Latency over time (per host and grouped by test type)
+  - Jitter trends for jitter measurements
+  - Reachability heatmaps
+- Time range selector: 1h, 6h, 12h, 24h, 7d, 30d, custom range
+- Color-coded status indicators (up/down/degraded/never tested)
+
+### 4. Settings Management
+- Configurable test intervals
+- Timeout settings per test type (HTTP: 10s, TCP: 5s, Ping: 5s, DNS: 5s)
+- Ping count (default: 5 packets for jitter calculation)
+- Data retention period (default: 14 days)
+- Theme selection (provide at least 3 dark and 3 light themes)
+- Configurable data aggregation for raw measurements and aggregated measurements with a maximum one-year of retention
+
+### 5. Data Model
+
+
+## Implementation Requirements
+
+### Project Structure
+Follow Ruby conventions:
+- `bin/` directory with helper scripts (console, setup, server, test)
+- `app/` for models, routes, and views
+- `lib/checker/` for core logic (testers, scheduler, logger)
+- `db/migrations/` for Sequel migrations
+- `test/` with Minitest test suite
+- `config/` for application and database setup
+- `.ruby-version` file
+
+### API Endpoints
+- `GET/POST/PUT/DELETE /api/hosts` - Host CRUD
+- `GET /api/hosts/status` - Current status of all hosts
+- `GET /api/measurements/host/:id` - Measurements for a host
+- `GET /api/measurements/latency` - Latency time series
+- `GET /api/measurements/jitter` - Jitter time series
+- `POST /api/tests/run/:id` - Trigger immediate test
+- `GET/PUT /api/settings` - Settings management
+- `GET /health` - Health check
+
+### Test Implementation
+Each test type should:
+- Implement timeout handling
+- Return: `{reachable: boolean, latency_ms: float, jitter_ms: float|nil, http_status: int|nil}`
+- Use native Ruby libraries where possible (Resolv for DNS, Net::HTTP, net-ping gem)
+- Handle errors gracefully and mark host as unreachable on failure
+
+### Docker Setup
+- Multi-stage Dockerfile using `ruby:3.3-slim`
+- Requires `NET_RAW` capability for ICMP ping
+- Data persistence via `/data` volume for database and logs
+- Non-root user for security
+- Environment variables for configuration
+
+## Nice-to-Haves
+- Rotating log files with size limits
+- Status calculation (success/degraded/failure based on recent measurements)
+- Immediate test validation when adding/editing hosts
+- Responsive design for mobile viewing
+- Comprehensive test suite with models, integration, and tester tests
+
+## Constraints
+- Keep dependencies minimal (avoid Rails, use Sinatra)
+- Prioritize simplicity over features
+- All testers should complete within their timeout periods
+- Database should handle concurrent scheduler and API access
+- Themes should be YAML-based and hot-swappable
+
+Please create a working application with migrations, seed data, documentation, and a comprehensive README.
+

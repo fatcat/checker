@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Run the test suite
+
+ENV['RACK_ENV'] = 'test'
+
+require 'bundler/setup'
+
+# If arguments provided, run specific test files
+if ARGV.empty?
+  exec 'bundle', 'exec', 'rake', 'test'
+else
+  # Run specific test files
+  exec 'bundle', 'exec', 'ruby', '-Ilib:test', *ARGV
+end

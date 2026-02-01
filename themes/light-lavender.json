@@ -4,17 +4,18 @@
   "type": "light",
   "description": "Soft purple theme with lavender tones",
   "colors": {
-    "background": "#faf5ff",
-    "surface": "#ffffff",
-    "surface-hover": "#f3e8ff",
-    "border": "#e9d5ff",
+    "background": "#d5c8e0",
+    "surface": "#e8ddf0",
+    "surface-hover": "#ded0e8",
+    "border": "#c0b0d5",
     "text": "#3b0764",
-    "text-muted": "#7c3aed",
+    "text-muted": "#5d2199",
     "accent": "#8b5cf6",
     "accent-hover": "#7c3aed",
     "success": "#22c55e",
     "warning": "#f59e0b",
     "danger": "#ef4444",
-    "info": "#06b6d4"
+    "info": "#06b6d4",
+    "neutral": "#5a9bd4"
   }
 }

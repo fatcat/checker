@@ -21,6 +21,9 @@ module Checker
         # Step 4: Clean up old 15-min data
         cleanup_15min_data(agg_15min_retention)
 
+        # Step 5: Clean up old hourly data (>1 year)
+        cleanup_hourly_data
+
         Checker.logger.info "[Aggregator] Aggregation complete"
       end
 
@@ -155,6 +158,17 @@ module Checker
           .delete
 
         Checker.logger.info "[Aggregator] Deleted #{deleted} old 15-min aggregates"
+      end
+
+      def cleanup_hourly_data
+        # Hard-coded 1 year (365 days) retention for hourly aggregates
+        cutoff = Time.now - (365 * 24 * 60 * 60)
+
+        deleted = DB[:measurements_hourly]
+          .where { period_start < cutoff }
+          .delete
+
+        Checker.logger.info "[Aggregator] Deleted #{deleted} old hourly aggregates (>365 days)"
       end
     end
   end

@@ -5,6 +5,7 @@ require_relative 'testers/ping'
 require_relative 'testers/tcp'
 require_relative 'testers/http'
 require_relative 'testers/dns'
+require_relative 'testers/jitter'
 
 module Checker
   module Testers
@@ -21,6 +22,8 @@ module Checker
           Http.new(test, config)
         when 'dns'
           Dns.new(test, config)
+        when 'jitter'
+          Jitter.new(test, config)
         else
           raise ArgumentError, "Unknown test type: #{test_type}"
         end

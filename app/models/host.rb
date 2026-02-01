@@ -8,6 +8,17 @@ module Checker
     plugin :timestamps, update_on_create: true
     plugin :validation_helpers
 
+    # Callbacks to manage jitter test creation/deletion
+    def before_update
+      super
+      manage_jitter_test
+    end
+
+    def after_create
+      super
+      manage_jitter_test if jitter_enabled
+    end
+
     # IPv4 address pattern: 4 octets (0-255) separated by dots
     IPV4_PATTERN = /\A(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\z/
 
@@ -65,6 +76,11 @@ module Checker
         validates_operator :>=, 0, :randomness_percent
         validates_operator :<=, 50, :randomness_percent
       end
+
+      # Jitter requires address to be valid (can't jitter test without address)
+      if jitter_enabled && (!address || address.to_s.strip.empty?)
+        errors.add(:jitter_enabled, 'cannot be enabled without a valid address')
+      end
     end
 
     def self.enabled
@@ -103,6 +119,7 @@ module Checker
         address: address,
         enabled: enabled,
         randomness_percent: randomness_percent || 5,
+        jitter_enabled: jitter_enabled || false,
         tests: tests.map(&:to_api_v2),
         overall_status: overall_status,
         created_at: created_at.iso8601,
@@ -143,10 +160,10 @@ module Checker
       successful_latencies = latest_measurements.select(&:reachable).map(&:latency_ms).compact
       avg_latency = successful_latencies.any? ? (successful_latencies.sum / successful_latencies.size).round(2) : nil
 
-      # Jitter: only from ping test
-      ping_test = tests_dataset.where(test_type: 'ping').first
-      ping_measurement = ping_test&.latest_measurement
-      jitter = ping_measurement&.jitter_ms
+      # Jitter: from jitter test (not ping test anymore)
+      jitter_test = tests_dataset.where(test_type: 'jitter').first
+      jitter_measurement = jitter_test&.latest_measurement
+      jitter = jitter_measurement&.jitter_ms
 
       # Last tested: most recent across all tests
       last_tested_time = latest_measurements.map(&:tested_at).compact.max
@@ -170,6 +187,25 @@ module Checker
         badge_color: badge_color,
         test_statuses: enabled_tests.map { |t| { test_type: t.test_type, status: t.status, status_color: t.status_color } }
       }
+    end
+
+    private
+
+    def manage_jitter_test
+      jitter_test = tests_dataset.where(test_type: 'jitter').first
+
+      if jitter_enabled && !jitter_test
+        # Create jitter test
+        Test.create(
+          host_id: id,
+          test_type: 'jitter',
+          enabled: true,
+          next_test_at: nil  # Will be scheduled immediately
+        )
+      elsif !jitter_enabled && jitter_test
+        # Delete jitter test and its measurements
+        jitter_test.destroy
+      end
     end
   end
 end

@@ -80,14 +80,14 @@ module Checker
     def self.jitter_series(range: '24h', start_time: nil, end_time: nil)
       since, until_time = parse_time_range(range: range, start_time: start_time, end_time: end_time)
 
-      # Only include hosts with enabled ping tests (jitter is only calculated for ping)
-      ping_tests = Test.where(test_type: 'ping', enabled: true)
+      # Only include hosts with enabled jitter tests
+      jitter_tests = Test.where(test_type: 'jitter', enabled: true)
         .where(host_id: Host.enabled.select(:id))
         .all
 
-      ping_tests.map do |test|
-        # Only fetch ping test measurements
-        measurements = where(host_id: test.host_id, test_type: 'ping')
+      jitter_tests.map do |test|
+        # Fetch jitter test measurements
+        measurements = where(host_id: test.host_id, test_type: 'jitter')
           .where { tested_at >= since }
           .where { tested_at <= until_time }
           .order(:tested_at)

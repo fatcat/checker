@@ -66,9 +66,15 @@
       </div>
 
       <div class="form-group">
-        <label for="tcp_timeout_seconds">TCP/UDP Timeout (seconds)</label>
+        <label for="tcp_timeout_seconds">TCP Timeout (seconds)</label>
         <input type="number" id="tcp_timeout_seconds" min="1" max="60">
-        <small class="form-hint">Timeout for TCP and UDP port checks</small>
+        <small class="form-hint">Timeout for TCP port checks</small>
+      </div>
+
+      <div class="form-group">
+        <label for="dns_timeout_seconds">DNS Timeout (seconds)</label>
+        <input type="number" id="dns_timeout_seconds" min="1" max="60">
+        <small class="form-hint">Timeout for DNS resolution tests</small>
       </div>
 
       <div class="form-group">
@@ -97,6 +103,15 @@
         <label for="aggregation_15min_retention_days">15-Minute Aggregation Retention (days)</label>
         <input type="number" id="aggregation_15min_retention_days" min="1" max="365">
         <small class="form-hint">How long to keep 15-minute aggregated data before converting to hourly</small>
+      </div>
+
+      <div class="retention-info">
+        <strong>Data Lifecycle:</strong>
+        <ul>
+          <li><strong>Raw measurements</strong> - Kept for the configured number of days, then aggregated to 15-minute intervals</li>
+          <li><strong>15-minute aggregates</strong> - Kept for the configured number of days, then aggregated to hourly intervals</li>
+          <li><strong>Hourly aggregates</strong> - Kept for 1 year maximum. Database size with 10 tests running continuously: approximately 50 MB after one year.</li>
+        </ul>
       </div>
     </section>
 
@@ -207,6 +222,33 @@
   background-color: var(--preview-danger);
   color: white;
 }
+
+.retention-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.retention-info strong {
+  color: var(--color-text);
+}
+
+.retention-info ul {
+  margin: 0.75rem 0 0 0;
+  padding-left: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.retention-info li {
+  margin-bottom: 0.5rem;
+}
+
+.retention-info li:last-child {
+  margin-bottom: 0;
+}
 </style>
 
 <script>
@@ -267,6 +309,7 @@ const Settings = {
       'aggregation_15min_retention_days',
       'http_timeout_seconds',
       'tcp_timeout_seconds',
+      'dns_timeout_seconds',
       'ping_count',
       'ping_timeout_seconds',
       'log_rotation_period',
@@ -336,6 +379,7 @@ const Settings = {
       aggregation_15min_retention_days: document.getElementById('aggregation_15min_retention_days').value,
       http_timeout_seconds: document.getElementById('http_timeout_seconds').value,
       tcp_timeout_seconds: document.getElementById('tcp_timeout_seconds').value,
+      dns_timeout_seconds: document.getElementById('dns_timeout_seconds').value,
       ping_count: document.getElementById('ping_count').value,
       ping_timeout_seconds: document.getElementById('ping_timeout_seconds').value,
       log_rotation_period: document.getElementById('log_rotation_period').value,

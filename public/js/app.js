@@ -3,6 +3,7 @@
 const Checker = {
   refreshInterval: null,
   countdownInterval: null,
+  pageRefreshInterval: null,
   charts: {},
   hostData: [],
 
@@ -12,11 +13,13 @@ const Checker = {
     const hostStatusGrid = document.getElementById('host-status-grid');
     if (!hostStatusGrid) return;
 
+    this.loadAutoRefreshSetting();
     this.bindEvents();
     this.loadDashboard();
     this.loadSchedulerStatus();
     this.startAutoRefresh();
     this.startCountdownUpdates();
+    this.startPageAutoRefresh();
   },
 
   bindEvents() {
@@ -40,13 +43,23 @@ const Checker = {
       });
     }
 
-    const autoRefreshToggle = document.getElementById('auto-refresh');
-    if (autoRefreshToggle) {
-      autoRefreshToggle.addEventListener('change', (e) => {
-        if (e.target.checked) {
-          this.startAutoRefresh();
-        } else {
-          this.stopAutoRefresh();
+    const autoRefreshInput = document.getElementById('auto-refresh-minutes');
+    if (autoRefreshInput) {
+      autoRefreshInput.addEventListener('input', (e) => {
+        const minutes = parseInt(e.target.value, 10);
+        if (!isNaN(minutes) && minutes >= 0) {
+          localStorage.setItem('autoRefreshMinutes', minutes);
+          this.startPageAutoRefresh();
+        }
+      });
+
+      autoRefreshInput.addEventListener('blur', (e) => {
+        // Clean up invalid input on blur
+        const value = e.target.value.trim();
+        if (value === '' || isNaN(parseInt(value, 10)) || parseInt(value, 10) < 0) {
+          e.target.value = '0';
+          localStorage.setItem('autoRefreshMinutes', 0);
+          this.stopPageAutoRefresh();
         }
       });
     }
@@ -87,6 +100,40 @@ const Checker = {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
+    }
+  },
+
+  loadAutoRefreshSetting() {
+    const saved = localStorage.getItem('autoRefreshMinutes');
+    const minutes = saved !== null ? parseInt(saved, 10) : 5;
+    const input = document.getElementById('auto-refresh-minutes');
+    if (input) {
+      input.value = minutes;
+      // Save the default if nothing was saved before
+      if (saved === null) {
+        localStorage.setItem('autoRefreshMinutes', 5);
+      }
+    }
+  },
+
+  startPageAutoRefresh() {
+    this.stopPageAutoRefresh();
+
+    const saved = localStorage.getItem('autoRefreshMinutes');
+    const minutes = saved !== null ? parseInt(saved, 10) : 0;
+
+    if (minutes > 0) {
+      const milliseconds = minutes * 60 * 1000;
+      this.pageRefreshInterval = setTimeout(() => {
+        location.reload();
+      }, milliseconds);
+    }
+  },
+
+  stopPageAutoRefresh() {
+    if (this.pageRefreshInterval) {
+      clearTimeout(this.pageRefreshInterval);
+      this.pageRefreshInterval = null;
     }
   },
 
@@ -137,7 +184,7 @@ const Checker = {
       const data = await response.json();
 
       if (data.running) {
-        statusEl.innerHTML = `<span class="status-badge up">Scheduler Running</span> (every ${data.test_interval}s)`;
+        statusEl.innerHTML = '<span class="status-badge up">Scheduler Running</span>';
       } else {
         statusEl.innerHTML = '<span class="status-badge down">Scheduler Stopped</span>';
       }
@@ -300,7 +347,8 @@ const Checker = {
       const response = await fetch(`/api/measurements/latency/by-type?${rangeParams}`);
       const data = await response.json();
 
-      const testTypes = data.test_types || [];
+      // Exclude jitter from latency charts (it has its own separate chart)
+      const testTypes = (data.test_types || []).filter(type => type !== 'jitter');
       const seriesByType = data.series_by_type || {};
 
       // Destroy existing latency charts
@@ -388,8 +436,14 @@ const Checker = {
         min: 0
       },
       stroke: {
-        curve: 'smooth',
+        curve: 'straight',
         width: 2
+      },
+      markers: {
+        discrete: []
+      },
+      dataLabels: {
+        enabled: false
       },
       tooltip: {
         x: {
@@ -426,10 +480,35 @@ const Checker = {
     const container = document.getElementById('jitter-chart');
     if (!container) return;
 
+    const chartContainer = document.getElementById('jitter-chart-container');
+
     try {
       const response = await fetch(`/api/measurements/jitter?${rangeParams}`);
       const data = await response.json();
       const seriesCount = (data.series || []).length;
+
+      // Check if there's any actual data (non-null values)
+      const hasData = seriesCount > 0 && data.series.some(s =>
+        s.data && s.data.length > 0 && s.data.some(point => point[1] !== null)
+      );
+
+      container.innerHTML = '';
+      if (this.charts.jitter) {
+        this.charts.jitter.destroy();
+      }
+
+      // If no data, hide the entire chart section
+      if (!hasData) {
+        if (chartContainer) {
+          chartContainer.style.display = 'none';
+        }
+        return;
+      }
+
+      // Show the chart section if it was hidden
+      if (chartContainer) {
+        chartContainer.style.display = '';
+      }
 
       const options = {
         chart: {
@@ -468,8 +547,14 @@ const Checker = {
           min: 0
         },
         stroke: {
-          curve: 'smooth',
+          curve: 'straight',
           width: 2
+        },
+        markers: {
+          discrete: []
+        },
+        dataLabels: {
+          enabled: false
         },
         tooltip: {
           x: {
@@ -477,8 +562,8 @@ const Checker = {
           }
         },
         legend: {
-          show: true,
-          showForSingleSeries: true,
+          show: seriesCount > 0,
+          showForSingleSeries: false,
           position: 'bottom',
           horizontalAlign: 'center',
           floating: false,
@@ -497,10 +582,6 @@ const Checker = {
         }
       };
 
-      container.innerHTML = '';
-      if (this.charts.jitter) {
-        this.charts.jitter.destroy();
-      }
       this.charts.jitter = new ApexCharts(container, options);
       this.charts.jitter.render();
     } catch (error) {

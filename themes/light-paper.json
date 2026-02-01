@@ -4,17 +4,18 @@
   "type": "light",
   "description": "Classic paper-like appearance with high contrast",
   "colors": {
-    "background": "#f8f8f8",
-    "surface": "#ffffff",
-    "surface-hover": "#f0f0f0",
-    "border": "#cccccc",
+    "background": "#c5c5c5",
+    "surface": "#dddddd",
+    "surface-hover": "#d2d2d2",
+    "border": "#adadad",
     "text": "#000000",
-    "text-muted": "#555555",
+    "text-muted": "#3a3a3a",
     "accent": "#0066cc",
     "accent-hover": "#0052a3",
     "success": "#28a745",
     "warning": "#ffc107",
     "danger": "#dc3545",
-    "info": "#17a2b8"
+    "info": "#17a2b8",
+    "neutral": "#5a9bd4"
   }
 }

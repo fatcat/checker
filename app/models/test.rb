@@ -8,7 +8,7 @@ module Checker
     plugin :timestamps, update_on_create: true
     plugin :validation_helpers
 
-    VALID_TEST_TYPES = %w[ping tcp http dns].freeze
+    VALID_TEST_TYPES = %w[ping tcp http dns jitter].freeze
 
     def validate
       super
@@ -58,10 +58,11 @@ module Checker
 
     # Latency thresholds for degraded status (in milliseconds)
     DEGRADED_THRESHOLDS = {
-      'ping' => 1000,  # > 1 second
-      'tcp' => 1000,   # > 1 second
-      'http' => 2000,  # > 2 seconds
-      'dns' => 2000    # > 2 seconds
+      'ping' => 1000,    # > 1 second
+      'tcp' => 1000,     # > 1 second
+      'http' => 2000,    # > 2 seconds
+      'dns' => 2000,     # > 2 seconds
+      'jitter' => 1000   # > 1 second
     }.freeze
 
     def status

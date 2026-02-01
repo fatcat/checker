@@ -27,7 +27,9 @@ gem 'faraday-follow_redirects', '~> 0.3'
 gem 'json', '~> 2.0'
 
 group :development, :test do
-  gem 'rspec', '~> 3.12'
+  gem 'rake', '~> 13.0'
+  gem 'minitest', '~> 5.0'
+  gem 'minitest-reporters', '~> 1.6'
   gem 'rack-test', '~> 2.1'
   gem 'rubocop', '~> 1.50'
 end

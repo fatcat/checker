@@ -4,17 +4,18 @@
   "type": "light",
   "description": "Warm cream tones with orange accents",
   "colors": {
-    "background": "#faf6f1",
-    "surface": "#ffffff",
-    "surface-hover": "#f5efe8",
-    "border": "#e8dfd4",
+    "background": "#d5cdc0",
+    "surface": "#e8e0d5",
+    "surface-hover": "#ded5c8",
+    "border": "#c0b5a8",
     "text": "#2d2013",
-    "text-muted": "#8b7355",
+    "text-muted": "#5d4d38",
     "accent": "#ea580c",
     "accent-hover": "#c2410c",
     "success": "#16a34a",
     "warning": "#ca8a04",
     "danger": "#dc2626",
-    "info": "#0284c7"
+    "info": "#0284c7",
+    "neutral": "#5a9bd4"
   }
 }

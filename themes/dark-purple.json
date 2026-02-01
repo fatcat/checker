@@ -15,6 +15,7 @@
     "success": "#50fa7b",
     "warning": "#f1fa8c",
     "danger": "#ff5555",
-    "info": "#8be9fd"
+    "info": "#8be9fd",
+    "neutral": "#6ba3d6"
   }
 }

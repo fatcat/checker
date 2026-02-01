@@ -8,6 +8,7 @@ module Checker
       'aggregation_15min_retention_days' => 30,
       'http_timeout_seconds' => 10,
       'tcp_timeout_seconds' => 5,
+      'dns_timeout_seconds' => 5,
       'ping_count' => 5,                     # Number of pings for jitter calculation
       'ping_timeout_seconds' => 5,
       'log_rotation_period' => 'hourly',     # hourly or daily

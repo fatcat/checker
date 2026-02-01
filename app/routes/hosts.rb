@@ -33,7 +33,8 @@ module Checker
           name: data[:name],
           address: data[:address],
           enabled: data.fetch(:enabled, true),
-          randomness_percent: data.fetch(:randomness_percent, 5)
+          randomness_percent: data.fetch(:randomness_percent, 5),
+          jitter_enabled: data.fetch(:jitter_enabled, false)
         )
 
         unless host.valid?
@@ -41,13 +42,8 @@ module Checker
         end
         host.save
 
-        # Create tests (always include ping)
-        tests_data = data[:tests] || [{ test_type: 'ping' }]
-
-        # Ensure ping test is included
-        unless tests_data.any? { |t| t[:test_type] == 'ping' }
-          tests_data.unshift({ test_type: 'ping', enabled: true })
-        end
+        # Create tests
+        tests_data = data[:tests] || []
 
         tests = []
         tests_data.each do |test_data|
@@ -97,7 +93,8 @@ module Checker
           name: data[:name] || host.name,
           address: data[:address] || host.address,
           enabled: data.fetch(:enabled, host.enabled),
-          randomness_percent: data.fetch(:randomness_percent, host.randomness_percent)
+          randomness_percent: data.fetch(:randomness_percent, host.randomness_percent),
+          jitter_enabled: data.fetch(:jitter_enabled, host.jitter_enabled)
         )
 
         unless host.valid?
@@ -107,19 +104,18 @@ module Checker
 
         # Update tests if provided
         if data[:tests]
-          # Ensure ping test is always included
-          unless data[:tests].any? { |t| t[:test_type] == 'ping' }
-            data[:tests].unshift({ test_type: 'ping', enabled: true })
-          end
-
-          # Get current test types
-          current_test_types = host.tests.map(&:test_type)
+          # Get current test types (excluding jitter which is auto-managed)
+          current_test_types = host.tests.reject { |t| t.test_type == 'jitter' }.map(&:test_type)
           new_test_types = data[:tests].map { |t| t[:test_type] }
 
-          # Remove tests not in the update (except ping)
+          # Remove tests not in the update (excluding jitter)
           to_remove = current_test_types - new_test_types
-          to_remove.delete('ping') # Never remove ping test
-          host.tests_dataset.where(test_type: to_remove).destroy unless to_remove.empty?
+          unless to_remove.empty?
+            # Delete tests individually to ensure they're actually removed
+            to_remove.each do |test_type|
+              host.tests_dataset.where(test_type: test_type).delete
+            end
+          end
 
           # Update or create tests
           data[:tests].each do |test_data|

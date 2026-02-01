@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Start the Puma web server
+
+ENV['RACK_ENV'] ||= 'development'
+
+require 'bundler/setup'
+
+puts "Starting Network Checker server (#{ENV['RACK_ENV']})..."
+puts
+
+# Pass any arguments to puma
+exec 'bundle', 'exec', 'puma', 'config.ru', *ARGV

@@ -7,11 +7,11 @@ Coded 90% by Claude Code. Reduced the time required from 3 weeks (I hardly ever 
 ## Features
 
 - **Multiple Test Types**
-  - **Ping (ICMP)** - Traditional ping with latency and jitter measurements
+  - **Ping (ICMP)** - Single ICMP echo request for latency measurement
   - **TCP** - Port connectivity checks with response time
-  - **UDP** - UDP port reachability testing
   - **HTTP/HTTPS** - Web endpoint monitoring with status code validation
   - **DNS** - DNS resolution testing with custom query support
+  - **Jitter (Optional)** - 5 ICMP pings for network stability measurement (IPDV)
 
 - **Performance Metrics**
   - Latency tracking (min, max, average)
@@ -32,14 +32,17 @@ Coded 90% by Claude Code. Reduced the time required from 3 weeks (I hardly ever 
   - Adjustable data retention periods
   - Per-host enable/disable controls
 
+![Network Checker Dashboard](docs/images/checker.png)
+
+
 ## Quick Start
 
 ### Docker (Recommended)
 
 ```bash
 # Clone the repository
-git clone https://github.com/fatcat/network-checker.git
-cd network-checker
+git clone https://github.com/fatcat/checker.git
+cd checker
 
 # Start with Docker Compose
 docker compose up -d
@@ -85,12 +88,22 @@ Settings can be configured through the web UI at `/settings`:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Test Interval | 300s (5 min) | Time between automated tests |
-| Raw Data Retention | 14 days | How long to keep individual measurements |
+| Raw Data Retention | 14 days | How long to keep individual measurements before aggregating to 15-minute intervals |
+| 15-Min Aggregation Retention | 30 days | How long to keep 15-minute aggregates before converting to hourly |
 | HTTP Timeout | 10s | Timeout for HTTP/HTTPS tests |
 | TCP Timeout | 5s | Timeout for TCP connection tests |
-| Ping Count | 5 | Number of pings per test (for jitter calculation) |
-| Ping Timeout | 5s | Timeout per ping packet |
+| DNS Timeout | 5s | Timeout for DNS resolution tests |
+| Ping Count | 5 | Number of pings for jitter calculation (when jitter is enabled) |
+| Ping Timeout | 5s | Timeout per ping packet (used by both ping and jitter tests) |
+| Log Rotation | hourly | How often to rotate log files (hourly or daily) |
+| Log Retention | 12 files | Number of log files to keep |
 | Theme | dark-default | UI color scheme |
+
+**Data Lifecycle:**
+- Raw measurements are kept for the configured retention period, then aggregated to 15-minute intervals
+- 15-minute aggregates are kept for the configured retention period, then aggregated to hourly intervals
+- Hourly aggregates are retained for a maximum of **1 year**
+- Database size with 10 tests running continuously: approximately **50 MB** after one year of operation
 
 ## Adding Hosts
 
@@ -99,30 +112,48 @@ Settings can be configured through the web UI at `/settings`:
 3. Fill in the host details:
    - **Name**: Display name for the host
    - **Address**: IP address or hostname
-   - **Port**: (Optional) Port number for TCP/UDP/HTTP tests
-   - **Test Type**: Select from ping, tcp, udp, http, or dns
-   - **DNS Query Hostname**: (DNS only) Hostname to resolve
-4. Click **Save**
+   - **Test Timing Variability**: Percentage variation in test timing (0-50%)
+   - **Perform jitter calculation** (optional): Enable IPDV jitter measurement
+4. Configure latency tests for the host:
+   - **Ping (ICMP) Latency**: Single ICMP ping for latency measurement
+   - **TCP**: Port connectivity (requires port number)
+   - **HTTP**: Web endpoint (requires port and scheme http/https)
+   - **DNS**: DNS resolution (requires hostname to resolve)
+5. Click **Save & Test** to validate configuration
+6. Click **Continue** to return to the hosts list
 
 ## Architecture
 
 ```
-network-checker/
+checker/
 ├── app/
 │   ├── models/          # Sequel ORM models
 │   ├── routes/          # API endpoints
 │   └── views/           # ERB templates
+├── bin/                 # Executable scripts
+│   ├── console          # Interactive console
+│   ├── setup            # Project setup
+│   ├── server           # Start server
+│   └── test             # Run tests
 ├── config/
 │   ├── application.rb   # App configuration
 │   └── database.rb      # Database setup
 ├── db/
 │   └── migrations/      # Database migrations
-├── lib/checker/
-│   ├── testers/         # Test type implementations
-│   ├── aggregator.rb    # Data aggregation
-│   ├── logger.rb        # Rotating log handler
-│   ├── scheduler.rb     # Background test scheduler
-│   └── theme_loader.rb  # Theme management
+├── lib/
+│   ├── checker/
+│   │   ├── testers/     # Test type implementations
+│   │   ├── aggregator.rb    # Data aggregation
+│   │   ├── logger.rb        # Rotating log handler
+│   │   ├── scheduler.rb     # Background test scheduler
+│   │   ├── theme_loader.rb  # Theme management
+│   │   └── version.rb       # Version constant
+│   └── tasks/           # Rake tasks
+├── test/                # Minitest test suite
+│   ├── models/          # Model tests
+│   ├── lib/             # Library tests
+│   ├── integration/     # Integration tests
+│   └── test_helper.rb   # Test configuration
 ├── public/              # Static assets (CSS, JS)
 ├── themes/              # Theme definitions (YAML)
 ├── config.ru            # Rack configuration
@@ -183,20 +214,57 @@ docker compose start
 ### Local Setup
 
 ```bash
-# Install dependencies
-bundle install
+# Clone the repository
+git clone https://github.com/fatcat/checker.git
+cd checker
 
-# Run migrations
-bundle exec rake db:migrate
+# Run setup script (installs dependencies, creates database, runs migrations)
+./bin/setup
 
 # Start the server
+./bin/server
+
+# Or use individual commands
+bundle install
+bundle exec rake db:migrate
 bundle exec puma config.ru
 ```
 
 ### Running Tests
 
 ```bash
-bundle exec rspec
+# Run all tests
+./bin/test
+
+# Or use rake
+bundle exec rake test
+
+# Run specific test file
+bundle exec ruby -Ilib:test test/models/test_host.rb
+```
+
+### Interactive Console
+
+```bash
+# Start console with application loaded
+./bin/console
+```
+
+### Rake Tasks
+
+```bash
+# Database tasks
+bundle exec rake db:migrate          # Run migrations
+bundle exec rake db:rollback         # Rollback last migration
+bundle exec rake db:reset            # Reset database
+bundle exec rake db:seed             # Seed sample data
+
+# Test tasks
+bundle exec rake test                # Run test suite
+
+# Application tasks
+bundle exec rake tests:run           # Run tests for all hosts
+bundle exec rake aggregation:run     # Run data aggregation
 ```
 
 ## Themes
@@ -210,8 +278,9 @@ Themes can be changed in **Settings** and take effect immediately.
 ## Requirements
 
 - Docker 20.10+ and Docker Compose v2 (for containerized deployment)
-- Ruby 3.0+ (for local development)
+- Ruby 3.3+ (for local development)
 - SQLite 3
+- Bundler 2.x
 
 ## License
 

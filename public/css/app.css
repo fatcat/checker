@@ -465,6 +465,11 @@ body {
   color: var(--color-danger);
 }
 
+.status-badge.neutral {
+  background-color: rgba(107, 163, 214, 0.2);
+  color: var(--color-neutral);
+}
+
 /* Loading state */
 .loading {
   color: var(--color-text-muted);

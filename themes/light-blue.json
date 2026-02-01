@@ -4,17 +4,18 @@
   "type": "light",
   "description": "Soft blue tones for a calm interface",
   "colors": {
-    "background": "#f0f4f8",
-    "surface": "#ffffff",
-    "surface-hover": "#e8eef4",
-    "border": "#d0dce8",
+    "background": "#b8c5d4",
+    "surface": "#d8e3ed",
+    "surface-hover": "#cdd9e5",
+    "border": "#a0b5c8",
     "text": "#1e3a5f",
-    "text-muted": "#5a7a9a",
+    "text-muted": "#3d5875",
     "accent": "#2563eb",
     "accent-hover": "#1d4ed8",
     "success": "#059669",
     "warning": "#d97706",
     "danger": "#dc2626",
-    "info": "#0891b2"
+    "info": "#0891b2",
+    "neutral": "#5a9bd4"
   }
 }

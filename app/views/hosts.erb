@@ -27,19 +27,25 @@
         <small class="form-hint">Recommended: 5%. Prevents thundering herd when scheduling tests.</small>
       </div>
 
-      <!-- Test Configuration Section -->
-      <div class="form-section">
-        <h3>Test Configuration</h3>
-        <p class="form-hint">Ping test is always enabled for jitter measurement. Select additional tests below.</p>
+      <div class="form-group">
+        <input type="checkbox" id="host-jitter-enabled" style="width: auto; display: inline-block; margin-right: 0.5rem;">
+        <label for="host-jitter-enabled" style="display: inline; margin-bottom: 0; cursor: pointer;">Perform jitter calculation for this host</label>
+        <small class="form-hint" style="display: block; margin-top: 0.5rem;">Measures network stability with the Inter-Packet Delay Variation RFC 3393</small>
+      </div>
 
-        <!-- Ping Test (Always Enabled) -->
+      <!-- Latency Test Configuration Section -->
+      <div class="form-section">
+        <h3>Latency Test Configuration</h3>
+        <p class="form-hint">Select which latency tests to run for this host. Each test measures response time using a single request.</p>
+
+        <!-- Ping Test -->
         <div class="test-config-row test-config-ping">
           <div class="test-checkbox">
-            <input type="checkbox" id="test-ping" checked>
-            <label for="test-ping">Ping (ICMP)</label>
+            <input type="checkbox" id="test-ping" checked onchange="Hosts.toggleTestFields('ping')">
+            <label for="test-ping">Ping (ICMP) Latency</label>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="ping-enabled" checked>
+            <input type="checkbox" id="ping-enabled" checked disabled>
             <span class="toggle-slider"></span>
           </label>
           <div class="test-fields"></div>
@@ -132,13 +138,14 @@
         <th>Name</th>
         <th>Address</th>
         <th>Tests</th>
+        <th>Jitter</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody id="hosts-tbody">
       <tr>
-        <td colspan="5" class="loading">Loading hosts...</td>
+        <td colspan="6" class="loading">Loading hosts...</td>
       </tr>
     </tbody>
   </table>
@@ -151,13 +158,6 @@ const Hosts = {
   init() {
     this.loadHosts();
     document.getElementById('host-form').addEventListener('submit', (e) => this.saveHost(e));
-
-    // Ensure ping checkbox always stays checked
-    document.getElementById('test-ping').addEventListener('change', function(e) {
-      if (!this.checked) {
-        this.checked = true;
-      }
-    });
 
     // Track form changes
     this.initFormChangeTracking();
@@ -198,11 +198,11 @@ const Hosts = {
       if (data.hosts && data.hosts.length > 0) {
         tbody.innerHTML = data.hosts.map(host => this.renderHostRow(host)).join('');
       } else {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading">No hosts configured.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">No hosts configured.</td></tr>';
       }
     } catch (error) {
       console.error('Failed to load hosts:', error);
-      tbody.innerHTML = '<tr><td colspan="5" class="loading">Failed to load hosts.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load hosts.</td></tr>';
     }
   },
 
@@ -229,11 +229,17 @@ const Hosts = {
       return `<span class="test-badge test-badge-${colorClass}">${testLabel}${enabledText}</span>`;
     }).join(' ');
 
+    // Jitter enabled indicator
+    const jitterBadge = host.jitter_enabled
+      ? '<span class="status-badge up">Yes</span>'
+      : '<span class="status-badge neutral">No</span>';
+
     return `
       <tr data-id="${host.id}">
         <td>${this.escapeHtml(host.name)}</td>
         <td>${this.escapeHtml(host.address)}</td>
         <td>${testBadges}</td>
+        <td>${jitterBadge}</td>
         <td>${statusBadge}</td>
         <td>
           <button class="btn btn-secondary" onclick="Hosts.editHost(${host.id})">Edit</button>
@@ -257,12 +263,16 @@ const Hosts = {
     document.getElementById('host-id').value = '';
     document.getElementById('host-form').reset();
     document.getElementById('host-randomness').value = '5'; // Default to 5%
+    document.getElementById('host-jitter-enabled').checked = false;
     document.getElementById('validation-results').style.display = 'none';
     document.getElementById('continue-btn').style.display = 'none';
     document.getElementById('save-btn').disabled = false;
     this.resetSaveButton();
 
-    // Reset all test checkboxes and fields
+    // Reset all test checkboxes and fields (including ping)
+    document.getElementById('test-ping').checked = true;
+    this.toggleTestFields('ping');
+
     ['tcp', 'http', 'dns'].forEach(type => {
       document.getElementById(`test-${type}`).checked = false;
       this.toggleTestFields(type);
@@ -282,8 +292,11 @@ const Hosts = {
     const enabledToggle = document.getElementById(`${testType}-enabled`);
 
     if (checkbox.checked) {
-      fields.style.display = 'flex';
+      // Enable the test and check the enabled toggle
+      if (fields) fields.style.display = 'flex';
       enabledToggle.disabled = false;
+      enabledToggle.checked = true;
+
       // Set required attribute on inputs when enabled
       if (testType === 'tcp') {
         document.getElementById('tcp-port').required = true;
@@ -291,8 +304,11 @@ const Hosts = {
         document.getElementById('dns-hostname').required = true;
       }
     } else {
-      fields.style.display = 'none';
+      // Disable the test and uncheck the enabled toggle
+      if (fields) fields.style.display = 'none';
       enabledToggle.disabled = true;
+      enabledToggle.checked = false;
+
       // Remove required attribute
       if (testType === 'tcp') {
         document.getElementById('tcp-port').required = false;
@@ -311,13 +327,14 @@ const Hosts = {
       document.getElementById('host-name').value = host.name;
       document.getElementById('host-address').value = host.address;
       document.getElementById('host-randomness').value = host.randomness_percent || 5;
+      document.getElementById('host-jitter-enabled').checked = host.jitter_enabled || false;
       document.getElementById('validation-results').style.display = 'none';
       document.getElementById('continue-btn').style.display = 'none';
       document.getElementById('save-btn').disabled = false;
       this.resetSaveButton();
 
-      // Reset all test checkboxes first
-      ['tcp', 'http', 'dns'].forEach(type => {
+      // Reset all test checkboxes first (including ping)
+      ['ping', 'tcp', 'http', 'dns'].forEach(type => {
         document.getElementById(`test-${type}`).checked = false;
         this.toggleTestFields(type);
       });
@@ -325,7 +342,9 @@ const Hosts = {
       // Load tests
       host.tests.forEach(test => {
         if (test.test_type === 'ping') {
+          document.getElementById('test-ping').checked = true;
           document.getElementById('ping-enabled').checked = test.enabled;
+          this.toggleTestFields('ping');
         } else if (test.test_type === 'tcp') {
           document.getElementById('test-tcp').checked = true;
           document.getElementById('tcp-port').value = test.port || '';
@@ -358,11 +377,13 @@ const Hosts = {
     const id = document.getElementById('host-id').value;
     const tests = [];
 
-    // Always include ping test
-    tests.push({
-      test_type: 'ping',
-      enabled: document.getElementById('ping-enabled').checked
-    });
+    // Add ping test if checked
+    if (document.getElementById('test-ping').checked) {
+      tests.push({
+        test_type: 'ping',
+        enabled: document.getElementById('ping-enabled').checked
+      });
+    }
 
     // Add TCP test if checked
     if (document.getElementById('test-tcp').checked) {
@@ -398,6 +419,7 @@ const Hosts = {
       name: document.getElementById('host-name').value,
       address: document.getElementById('host-address').value,
       randomness_percent: parseInt(document.getElementById('host-randomness').value) || 5,
+      jitter_enabled: document.getElementById('host-jitter-enabled').checked,
       enabled: true,
       tests: tests,
       validate_immediately: true

@@ -4,17 +4,18 @@
   "type": "light",
   "description": "Fresh mint green theme",
   "colors": {
-    "background": "#f0fdf4",
-    "surface": "#ffffff",
-    "surface-hover": "#ecfce8",
-    "border": "#d1fae5",
+    "background": "#c0d8c8",
+    "surface": "#dceee0",
+    "surface-hover": "#d0e5d8",
+    "border": "#a8c8b0",
     "text": "#14532d",
-    "text-muted": "#4d7c5a",
+    "text-muted": "#2d5a3d",
     "accent": "#10b981",
     "accent-hover": "#059669",
     "success": "#10b981",
     "warning": "#f59e0b",
     "danger": "#ef4444",
-    "info": "#06b6d4"
+    "info": "#06b6d4",
+    "neutral": "#5a9bd4"
   }
 }

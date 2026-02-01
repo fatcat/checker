@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Interactive console with application environment loaded
+
+ENV['RACK_ENV'] ||= 'development'
+ENV['DISABLE_SCHEDULER'] = 'true'
+
+require 'bundler/setup'
+Bundler.require(:default, ENV['RACK_ENV'].to_sym)
+require 'irb'
+
+# Load application
+require_relative '../config/database'
+require_relative '../config/application'
+
+# Connect to database
+DB = Checker::Database.connect(ENV['RACK_ENV'])
+
+# Run migrations
+Checker::Database.migrate!
+
+# Load models
+Dir[File.expand_path('../app/models/*.rb', __dir__)].each { |f| require f }
+
+# Load checker library
+require_relative '../lib/checker'
+
+puts "Network Checker Console (#{ENV['RACK_ENV']})"
+puts "Ruby #{RUBY_VERSION}"
+puts "Checker version #{Checker::VERSION}"
+puts
+puts "Available models: Host, Test, Measurement"
+puts "Database: #{DB.opts[:database]}"
+puts
+
+IRB.start(__FILE__)

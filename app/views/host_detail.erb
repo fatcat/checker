@@ -92,15 +92,14 @@
       <thead>
         <tr>
           <th>Time</th>
+          <th>Test Type</th>
+          <th>Result</th>
           <th>Status</th>
-          <th>Latency</th>
-          <th>Jitter</th>
-          <th>HTTP Status</th>
           <th>Error</th>
         </tr>
       </thead>
       <tbody id="recent-tests-tbody">
-        <tr><td colspan="6" class="loading">Loading...</td></tr>
+        <tr><td colspan="5" class="loading">Loading...</td></tr>
       </tbody>
     </table>
   </section>
@@ -329,10 +328,22 @@ const HostDetail = {
       const response = await fetch(`/api/measurements/host/${this.hostId}?range=${range}`);
       const data = await response.json();
 
-      const series = [{
-        name: 'Latency',
-        data: data.measurements.map(m => [new Date(m.tested_at).getTime(), m.latency_ms])
-      }];
+      // Group measurements by test type (exclude jitter - it has its own chart)
+      const byTestType = {};
+      data.measurements
+        .filter(m => m.latency_ms !== null && m.latency_ms !== undefined && m.test_type !== 'jitter')
+        .forEach(m => {
+          if (!byTestType[m.test_type]) {
+            byTestType[m.test_type] = [];
+          }
+          byTestType[m.test_type].push([new Date(m.tested_at).getTime(), m.latency_ms]);
+        });
+
+      // Create series for each test type
+      const series = Object.keys(byTestType).map(testType => ({
+        name: testType.toUpperCase(),
+        data: byTestType[testType]
+      }));
 
       const options = {
         chart: { type: 'line', height: 250, background: 'transparent', toolbar: { show: true } },
@@ -340,9 +351,12 @@ const HostDetail = {
         series: series,
         xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
         yaxis: { title: { text: 'Latency (ms)' }, min: 0 },
-        stroke: { curve: 'smooth', width: 2 },
-        colors: ['#00bf63'],
-        legend: { show: true, showForSingleSeries: true, position: 'bottom', horizontalAlign: 'center' },
+        stroke: { curve: 'straight', width: 2 },
+        markers: {
+          discrete: []
+        },
+        dataLabels: { enabled: false },
+        legend: { show: true, position: 'bottom', horizontalAlign: 'center' },
         noData: { text: 'No data available', style: { color: '#a0a0a0' } }
       };
 
@@ -357,13 +371,34 @@ const HostDetail = {
 
   async loadJitterChart(range) {
     const container = document.getElementById('jitter-chart');
+    const chartContainer = container.closest('.chart-container');
+
     try {
       const response = await fetch(`/api/measurements/host/${this.hostId}?range=${range}`);
       const data = await response.json();
 
+      // Check if there's any actual jitter data (non-null values)
+      const hasData = data.measurements && data.measurements.length > 0 &&
+                      data.measurements.some(m => m.jitter_ms !== null);
+
+      // If no data, hide the entire chart section
+      if (!hasData) {
+        if (chartContainer) {
+          chartContainer.style.display = 'none';
+        }
+        return;
+      }
+
+      // Show the chart section if it was hidden
+      if (chartContainer) {
+        chartContainer.style.display = '';
+      }
+
       const series = [{
         name: 'Jitter',
-        data: data.measurements.map(m => [new Date(m.tested_at).getTime(), m.jitter_ms])
+        data: data.measurements
+          .filter(m => m.jitter_ms !== null && m.jitter_ms !== undefined)
+          .map(m => [new Date(m.tested_at).getTime(), m.jitter_ms])
       }];
 
       const options = {
@@ -372,9 +407,13 @@ const HostDetail = {
         series: series,
         xaxis: { type: 'datetime', labels: { datetimeUTC: false } },
         yaxis: { title: { text: 'Jitter (ms)' }, min: 0 },
-        stroke: { curve: 'smooth', width: 2 },
+        stroke: { curve: 'straight', width: 2 },
+        markers: {
+          discrete: []
+        },
+        dataLabels: { enabled: false },
         colors: ['#ffc107'],
-        legend: { show: true, showForSingleSeries: true, position: 'bottom', horizontalAlign: 'center' },
+        legend: { show: false },
         noData: { text: 'No data available', style: { color: '#a0a0a0' } }
       };
 
@@ -399,22 +438,36 @@ const HostDetail = {
       const recent = data.measurements.slice(-20).reverse();
 
       if (recent.length > 0) {
-        tbody.innerHTML = recent.map(m => `
-          <tr>
-            <td>${new Date(m.tested_at).toLocaleString()}</td>
-            <td><span class="status-badge ${m.reachable ? 'up' : 'down'}">${m.reachable ? 'UP' : 'DOWN'}</span></td>
-            <td>${m.latency_ms ? m.latency_ms.toFixed(2) + ' ms' : 'N/A'}</td>
-            <td>${m.jitter_ms ? m.jitter_ms.toFixed(2) + ' ms' : 'N/A'}</td>
-            <td>${m.http_status || '-'}</td>
-            <td class="error-message">${m.error_message ? this.escapeHtml(m.error_message) : '-'}</td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = recent.map(m => {
+          // Format result based on test type
+          let result = 'N/A';
+          if (m.test_type === 'jitter') {
+            result = m.jitter_ms ? `${m.jitter_ms.toFixed(2)} ms` : 'N/A';
+          } else if (m.test_type === 'http') {
+            const latency = m.latency_ms ? `${m.latency_ms.toFixed(2)} ms` : 'N/A';
+            const status = m.http_status ? ` (${m.http_status})` : '';
+            result = latency + status;
+          } else {
+            // ping, tcp, dns
+            result = m.latency_ms ? `${m.latency_ms.toFixed(2)} ms` : 'N/A';
+          }
+
+          return `
+            <tr>
+              <td>${new Date(m.tested_at).toLocaleString()}</td>
+              <td><span class="test-badge test-badge-${m.test_type}">${m.test_type.toUpperCase()}</span></td>
+              <td>${result}</td>
+              <td><span class="status-badge ${m.reachable ? 'up' : 'down'}">${m.reachable ? 'UP' : 'DOWN'}</span></td>
+              <td class="error-message">${m.error_message ? this.escapeHtml(m.error_message) : '-'}</td>
+            </tr>
+          `;
+        }).join('');
       } else {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">No test data available</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">No test data available</td></tr>';
       }
     } catch (error) {
       console.error('Failed to load recent tests:', error);
-      tbody.innerHTML = '<tr><td colspan="6" class="loading">Failed to load data</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">Failed to load data</td></tr>';
     }
   },
 

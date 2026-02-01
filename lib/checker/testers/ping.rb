@@ -6,7 +6,7 @@ module Checker
   module Testers
     class Ping < Base
       def run
-        ping_count = config[:ping_count] || 5
+        ping_count = 1  # Single ping for latency only
         ping_timeout = [config[:ping_timeout] || 5, 10].min # Max 10 seconds
 
         latencies = execute_ping(ping_count, ping_timeout)
@@ -19,20 +19,17 @@ module Checker
           return { reachable: false, error: "Host unreachable" }
         end
 
-        avg_latency = latencies.sum / latencies.size
-        jitter = calculate_ipdv(latencies)
+        latency = latencies.first
 
         record_result(
           reachable: true,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3)
+          latency_ms: latency.round(3)
         )
 
         {
           reachable: true,
-          latency_ms: avg_latency.round(3),
-          jitter_ms: jitter.round(3),
-          samples: latencies.size
+          latency_ms: latency.round(3),
+          samples: 1
         }
       end
 
@@ -52,22 +49,6 @@ module Checker
         latencies = stdout.scan(/time[=<]([\d.]+)\s*ms/).flatten.map(&:to_f)
 
         latencies
-      end
-
-      # Calculate Inter-Packet Delay Variation (IPDV) - RFC 3393
-      # IPDV measures the difference in delay between consecutive packets
-      def calculate_ipdv(latencies)
-        return 0.0 if latencies.size < 2
-
-        # Calculate delay differences between consecutive packets
-        delay_variations = []
-        (1...latencies.size).each do |i|
-          variation = (latencies[i] - latencies[i - 1]).abs
-          delay_variations << variation
-        end
-
-        # Return mean absolute IPDV
-        delay_variations.sum / delay_variations.size
       end
     end
   end

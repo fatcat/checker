@@ -3,8 +3,8 @@
     <h1>Dashboard</h1>
     <div class="dashboard-actions">
       <label class="auto-refresh-toggle">
-        <input type="checkbox" id="auto-refresh" checked>
-        <span>Auto-refresh</span>
+        <span>Auto-refresh (minutes):</span>
+        <input type="number" id="auto-refresh-minutes" min="0" step="1" placeholder="5" style="width: 60px; margin-left: 0.5rem;">
       </label>
       <span id="scheduler-status" class="scheduler-status"></span>
       <button class="btn btn-primary" id="run-tests-btn" onclick="Checker.runTestsNow()">Run Tests Now</button>
@@ -43,11 +43,9 @@
       <p class="loading">Loading latency charts...</p>
     </div>
 
-    <div class="charts-grid">
-      <div class="chart-container full-width">
-        <h3>Jitter (IPDV) - All Hosts</h3>
-        <div id="jitter-chart" class="chart"></div>
-      </div>
+    <div class="chart-container full-width" id="jitter-chart-container">
+      <h3>Jitter (IPDV) - All Hosts</h3>
+      <div id="jitter-chart" class="chart"></div>
     </div>
   </section>
 

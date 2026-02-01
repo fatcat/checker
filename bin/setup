@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Setup script for initial project installation
+
+require 'fileutils'
+
+def system!(*args)
+  system(*args, exception: true)
+end
+
+def section(message)
+  puts
+  puts "==> #{message}"
+end
+
+section "Network Checker Setup"
+
+# Check Ruby version
+section "Checking Ruby version..."
+required_version = Gem::Version.new('3.0.0')
+current_version = Gem::Version.new(RUBY_VERSION)
+
+if current_version < required_version
+  puts "ERROR: Ruby #{required_version} or higher is required (you have #{current_version})"
+  exit 1
+end
+puts "Ruby #{current_version} - OK"
+
+# Install dependencies
+section "Installing Ruby dependencies..."
+system! 'gem install bundler --conservative'
+system! 'bundle check || bundle install'
+
+# Setup database
+section "Setting up database..."
+ENV['RACK_ENV'] ||= 'development'
+require 'bundler/setup'
+Bundler.require(:default, ENV['RACK_ENV'].to_sym)
+
+require_relative '../config/database'
+require_relative '../config/application'
+
+DB = Checker::Database.connect(ENV['RACK_ENV'])
+Checker::Database.migrate!
+
+puts "Database created and migrated: #{DB.opts[:database]}"
+
+# Create directories
+section "Creating directories..."
+FileUtils.mkdir_p('log') unless Dir.exist?('log')
+FileUtils.mkdir_p('tmp') unless Dir.exist?('tmp')
+puts "Directories created"
+
+section "Setup complete!"
+puts
+puts "Next steps:"
+puts "  ./bin/console  - Start an interactive console"
+puts "  ./bin/server   - Start the web server"
+puts "  ./bin/test     - Run the test suite"
+puts

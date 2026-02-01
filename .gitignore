@@ -4,6 +4,7 @@ log/*.log*
 
 # Database
 *.sqlite3
+*.sqlite3-*
 *.db
 
 # Ruby
@@ -11,6 +12,13 @@ log/*.log*
 *.rbc
 .bundle
 vendor/bundle
+.byebug_history
+
+# Temp files
+tmp/
+
+# Claude Code
+.claude/
 
 # IDE
 .idea/
