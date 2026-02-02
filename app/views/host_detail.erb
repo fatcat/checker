@@ -252,10 +252,10 @@ const HostDetail = {
       const response = await fetch(`/api/hosts/${this.hostId}`);
       const data = await response.json();
       this.hostData = data;
-      this.hasPingTest = data.tests && data.tests.some(t => t.test_type === 'ping' && t.enabled);
+      this.hasJitterTest = data.tests && data.tests.some(t => t.test_type === 'jitter' && t.enabled);
     } catch (error) {
       console.error('Failed to load host info:', error);
-      this.hasPingTest = false;
+      this.hasJitterTest = false;
     }
   },
 
@@ -308,7 +308,7 @@ const HostDetail = {
     const range = document.getElementById('time-range').value;
     const promises = [this.loadLatencyChart(range)];
 
-    if (this.hasPingTest) {
+    if (this.hasJitterTest) {
       promises.push(this.loadJitterChart(range));
     } else {
       this.showJitterUnavailableMessage();
@@ -319,7 +319,7 @@ const HostDetail = {
 
   showJitterUnavailableMessage() {
     const container = document.getElementById('jitter-chart');
-    container.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--color-text-muted);">Jitter tracking requires an enabled ping test</div>';
+    container.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--color-text-muted);">Jitter tracking requires an enabled jitter test</div>';
   },
 
   async loadLatencyChart(range) {
