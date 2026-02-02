@@ -194,33 +194,58 @@ module Checker
       json(host_id: host.id, results: results)
     end
 
-    # Get host statistics
+    # Get host statistics (rolling 50-measurement window per test type)
     get '/api/hosts/:id/stats' do
       host = Host[params[:id].to_i]
       halt 404, json(error: 'Host not found') unless host
 
       range = params[:range] || '24h'
-      interval = Measurement.time_range_to_interval(range)
-      since = Time.now - interval
+      window_size = 50
 
-      # Aggregate stats across all tests for this host
-      measurements = Measurement.for_host(host.id, since: since).all
+      # Get enabled test types for this host
+      test_types = host.tests.select(&:enabled).map(&:test_type)
 
-      total = measurements.count
-      successful = measurements.count(&:reachable)
-      latencies = measurements.map(&:latency_ms).compact
-      jitters = measurements.select { |m| m.jitter_ms }.map(&:jitter_ms).compact
+      all_measurements = []
+      all_latencies = []
+      all_jitters = []
+
+      # Get last 50 measurements per test type
+      test_types.each do |test_type|
+        measurements = Measurement
+          .where(host_id: host.id, test_type: test_type)
+          .order(Sequel.desc(:tested_at))
+          .limit(window_size)
+          .all
+
+        all_measurements.concat(measurements)
+
+        # Collect latencies from latency-based tests (ping, tcp, http, dns)
+        if test_type != 'jitter'
+          latencies = measurements.map(&:latency_ms).compact
+          all_latencies.concat(latencies)
+        end
+
+        # Collect jitter from jitter tests (each result is already avg of 5 pings)
+        if test_type == 'jitter'
+          jitters = measurements.map(&:jitter_ms).compact
+          all_jitters.concat(jitters)
+        end
+      end
+
+      total = all_measurements.count
+      successful = all_measurements.count(&:reachable)
 
       json(
         total_tests: total,
         successful_tests: successful,
         uptime_percent: total > 0 ? ((successful.to_f / total) * 100).round(2) : 0,
-        avg_latency: latencies.any? ? (latencies.sum / latencies.size).round(2) : nil,
-        min_latency: latencies.min&.round(2),
-        max_latency: latencies.max&.round(2),
-        avg_jitter: jitters.any? ? (jitters.sum / jitters.size).round(2) : nil,
-        last_test: measurements.last&.tested_at&.iso8601,
-        range: range
+        avg_latency: all_latencies.any? ? (all_latencies.sum / all_latencies.size).round(2) : nil,
+        min_latency: all_latencies.min&.round(2),
+        max_latency: all_latencies.max&.round(2),
+        avg_jitter: all_jitters.any? ? (all_jitters.sum / all_jitters.size).round(2) : nil,
+        last_test: all_measurements.max_by(&:tested_at)&.tested_at&.iso8601,
+        range: range,
+        window_size: window_size
       )
     end
 

@@ -13,7 +13,10 @@ module Checker
       'ping_timeout_seconds' => 5,
       'log_rotation_period' => 'hourly',     # hourly or daily
       'log_retention_count' => 12,           # Number of log files to keep
-      'theme' => 'dark-default'              # Current theme ID
+      'theme' => 'dark-default',             # Current theme ID
+      'outlier_detection_enabled' => true,   # Retest outlier results
+      'outlier_threshold_multiplier' => 10,  # Result must be this many times worse than average
+      'outlier_min_threshold_ms' => 500      # Minimum difference in ms to be considered an outlier
     }.freeze
 
     class << self

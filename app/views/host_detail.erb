@@ -34,6 +34,11 @@
     </div>
   </div>
 
+  <div class="stats-header">
+    <h2>Statistics</h2>
+    <span class="stats-description">Rolling average of last 50 measurements</span>
+  </div>
+
   <div class="stats-grid" id="stats-grid">
     <div class="stat-card">
       <span class="stat-value" id="stat-uptime">--</span>
@@ -172,6 +177,25 @@
 .detail-value {
   font-size: 1rem;
   font-family: monospace;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.stats-header h2 {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+}
+
+.stats-description {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .stats-grid {
