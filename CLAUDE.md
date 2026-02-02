@@ -356,3 +356,127 @@ All tests passing (73 total):
 10. `test/integration/test_api.rb` - Fixed expectations
 11. `README.md` - Updated documentation
 12. `CLAUDE.md` - This entry
+
+### February 2025 - Rolling Window Statistics and Outlier Detection
+
+Implemented rolling window averages for more stable statistics and automatic outlier detection with retesting to filter transient network issues.
+
+#### Changes Made
+
+**1. Fixed Jitter Chart Detection ([app/views/host_detail.erb](app/views/host_detail.erb))**
+- Changed JavaScript to check for enabled jitter test instead of ping test
+- Updated `hasJitterTest` logic to look for `test_type === 'jitter'`
+- Fixed message: "Jitter tracking requires an enabled jitter test"
+- Aligns with architecture where jitter is separate from ping
+
+**2. Rolling Window Statistics ([app/routes/hosts.rb](app/routes/hosts.rb))**
+- **Before**: Stats calculated from all measurements in selected time range (1h, 6h, 24h, etc.)
+- **After**: Stats calculated from last 50 measurements per test type
+- Each test type maintains independent rolling window:
+  - Last 50 ping results → latency stats
+  - Last 50 TCP results → latency stats
+  - Last 50 HTTP results → latency stats
+  - Last 50 DNS results → latency stats
+  - Last 50 jitter results → jitter stats
+- Aggregated statistics:
+  - Avg/Min/Max Latency: From all latency-based test types combined
+  - Avg Jitter: From jitter test type only
+  - Uptime %: Success rate across all test types
+  - Total Tests: Sum of measurements (up to 50 × number of enabled test types)
+- Added `window_size` field to API response
+
+**3. Frontend Statistics Display ([app/views/host_detail.erb](app/views/host_detail.erb))**
+- Added "Statistics" header with description
+- Added label: "Rolling average of last 50 measurements"
+- Added CSS styling for stats header and description
+- Charts still use time range selector (independent from stats)
+
+**4. Outlier Detection with Automatic Retesting ([lib/checker/testers/base.rb](lib/checker/testers/base.rb))**
+
+**Configuration ([config/application.rb](config/application.rb))**:
+- `outlier_detection_enabled`: Enable/disable feature (default: `true`)
+- `outlier_threshold_multiplier`: Result must be this many times worse (default: `10`)
+- `outlier_min_threshold_ms`: Minimum difference in ms to qualify (default: `500`)
+
+**Detection Logic**:
+- Queries last 50 measurements for the specific test type
+- Calculates baseline average
+- Result is outlier if BOTH conditions met:
+  - Current value > baseline × multiplier (default 10×)
+  - Difference > minimum threshold (default 500ms)
+- Requires at least 5 historical samples for baseline
+
+**Retest Logic**:
+- If outlier detected, immediately reruns the same test
+- Compares retest result to original outlier
+- **If retest confirms** (within 50% of original): Records original result (real issue)
+- **If retest normal**: Records retest result (discards transient spike)
+- If retest fails: Confirms original was real issue
+
+**Logging**:
+```
+[OutlierDetection] Potential outlier detected for example.com (ping): latency=2000ms
+[OutlierDetection] Retest shows normal result for example.com (ping). Using retest values.
+```
+
+**Example**:
+- Baseline: 20ms average latency
+- Test result: 2000ms → Outlier detected (100× worse, >500ms diff)
+- Retest: 25ms → Discards outlier, records 25ms
+- Retest: 1800ms → Confirms issue, records 2000ms
+
+#### Architecture Design
+
+**Per-Test-Type Rolling Windows**:
+- Each test type tracks its own history independently
+- Ensures equal representation regardless of test frequency
+- Prevents fast-running tests from dominating statistics
+- Jitter measurements already represent test results (avg of 5 pings per RFC 3393)
+
+**Outlier Detection Approach**:
+- Simple threshold-based (not statistical methods like z-score)
+- Benefits:
+  - Easy to understand and configure
+  - Predictable behavior
+  - Computationally lightweight
+  - Appropriate for network monitoring (dramatic spikes are obvious)
+- Executed in `record_result` before database insertion
+- Uses existing `record_results: false` flag to prevent retest recording
+
+#### Implementation Notes
+
+**Rolling Window Statistics**:
+- Stats now independent of time range selector
+- Provides stable performance metrics
+- Charts still use time range for historical analysis
+- Window size (50) provides good balance of stability vs responsiveness
+
+**Outlier Detection**:
+- Only runs for successful tests (reachable=true)
+- Only runs when recording results (not for validation tests)
+- Creates new tester instance with `record_results: false` for retest
+- No infinite loops due to flag isolation
+- Minimal performance impact (single additional test when outlier detected)
+
+#### Files Modified
+
+1. `app/views/host_detail.erb` - Fixed jitter test detection, added stats header
+2. `app/routes/hosts.rb` - Implemented per-test-type rolling window statistics
+3. `lib/checker/testers/base.rb` - Added outlier detection and retest logic
+4. `config/application.rb` - Added outlier detection configuration settings
+5. `CLAUDE.md` - This entry
+
+#### Benefits
+
+**Rolling Window Statistics**:
+- Consistent metrics regardless of time range selected
+- Equal representation across all test types
+- More stable averages (not affected by old data when switching ranges)
+- Clear separation: stats for current state, charts for historical trends
+
+**Outlier Detection**:
+- Filters transient network glitches automatically
+- Preserves real performance degradation events
+- No false positives from isolated packet loss
+- Transparent logging for troubleshooting
+- Configurable thresholds for different use cases
