@@ -1,0 +1,148 @@
+# frozen_string_literal: true
+
+# Optional plugins - install with: bundle install
+# require:
+#   - rubocop-sequel
+
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - 'db/migrations/**/*'
+    - 'vendor/**/*'
+    - 'bin/*'
+    - 'tmp/**/*'
+    - 'log/**/*'
+
+# Layout
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns:
+    - '^\s*#'  # Allow long comments
+
+Layout/FirstHashElementIndentation:
+  EnforcedStyle: consistent
+
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+Layout/ArgumentAlignment:
+  EnforcedStyle: with_first_argument
+
+# Metrics
+Metrics/AbcSize:
+  Max: 30
+  Exclude:
+    - 'app/routes/**/*'
+
+Metrics/MethodLength:
+  Max: 25
+  Exclude:
+    - 'app/routes/**/*'
+
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+    - 'Rakefile'
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+# Naming
+Naming/FileName:
+  Exclude:
+    - 'config.ru'
+    - 'Gemfile'
+    - 'Rakefile'
+
+Naming/MethodParameterName:
+  AllowedNames:
+    - id
+    - db
+    - ip
+    - ms
+
+# Style
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+  ConsistentQuotesInMultiline: true
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: single_quotes
+
+Style/HashSyntax:
+  EnforcedStyle: ruby19_no_mixed_keys
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+Style/WordArray:
+  EnforcedStyle: brackets
+
+Style/NumericLiterals:
+  MinDigits: 6
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: no_comma
+
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: no_comma
+
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: no_comma
+
+Style/ClassAndModuleChildren:
+  Enabled: false
+
+Style/GuardClause:
+  MinBodyLength: 3
+
+Style/IfUnlessModifier:
+  Enabled: false
+
+Style/NegatedIf:
+  Enabled: false
+
+Style/Lambda:
+  EnforcedStyle: literal
+
+Style/BlockDelimiters:
+  EnforcedStyle: line_count_based
+
+Style/EmptyMethod:
+  EnforcedStyle: expanded
+
+Style/RescueStandardError:
+  EnforcedStyle: implicit
+
+# Lint
+Lint/AmbiguousBlockAssociation:
+  Exclude:
+    - 'test/**/*'
+
+Lint/SuppressedException:
+  AllowComments: true
+
+# Bundler
+Bundler/OrderedGems:
+  TreatCommentsAsGroupSeparators: true
+
+# Sequel-specific (requires rubocop-sequel gem)
+# Sequel/ConcurrentIndex:
+#   Enabled: true
+#
+# Sequel/SaveChanges:
+#   Enabled: true

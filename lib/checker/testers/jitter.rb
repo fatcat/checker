@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'open3'
+require 'shellwords'
 
 module Checker
   module Testers
@@ -52,7 +53,9 @@ module Checker
 
       def execute_ping(count, timeout)
         # Same as ping tester: 5 pings with 0.2s interval
-        cmd = "ping -c #{count} -W #{timeout} -i 0.2 #{address} 2>&1"
+        # Use Shellwords.shellescape to prevent command injection
+        safe_address = Shellwords.shellescape(address)
+        cmd = "ping -c #{count} -W #{timeout} -i 0.2 #{safe_address} 2>&1"
         stdout, status = Open3.capture2(cmd)
         return [] unless status.success?
 

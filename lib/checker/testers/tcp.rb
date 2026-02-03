@@ -35,11 +35,13 @@ module Checker
 
       def measure_connection(timeout_seconds)
         start_time = Time.now
+        socket = nil
 
         Timeout.timeout(timeout_seconds) do
           socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
+          sockaddr = Socket.sockaddr_in(port, address)
+
           begin
-            sockaddr = Socket.sockaddr_in(port, address)
             socket.connect_nonblock(sockaddr)
           rescue IO::WaitWritable
             IO.select(nil, [socket], nil, timeout_seconds)
@@ -49,7 +51,6 @@ module Checker
               # Already connected - this is success
             end
           end
-          socket.close
 
           latency_ms = (Time.now - start_time) * 1000
           { success: true, latency_ms: latency_ms }
@@ -64,6 +65,8 @@ module Checker
         { success: false, error: "Host unreachable" }
       rescue StandardError => e
         { success: false, error: e.message }
+      ensure
+        socket&.close
       end
 
     end

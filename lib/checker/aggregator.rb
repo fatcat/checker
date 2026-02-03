@@ -42,19 +42,20 @@ module Checker
 
           next if measurements.empty?
 
-          # Group by 15-minute periods
+          # Group by test_type and 15-minute periods
           grouped = measurements.group_by do |m|
             time = m[:tested_at]
             minute = (time.min / 15) * 15
-            Time.new(time.year, time.month, time.day, time.hour, minute, 0)
+            period = Time.new(time.year, time.month, time.day, time.hour, minute, 0)
+            [m[:test_type], period]
           end
 
-          grouped.each do |period_start, group|
+          grouped.each do |(test_type, period_start), group|
             period_end = period_start + (15 * 60)
 
             # Check if already aggregated
             existing = DB[:measurements_15min]
-              .where(host_id: host.id, period_start: period_start)
+              .where(host_id: host.id, test_type: test_type, period_start: period_start)
               .first
 
             next if existing
@@ -66,6 +67,7 @@ module Checker
 
             DB[:measurements_15min].insert(
               host_id: host.id,
+              test_type: test_type,
               period_start: period_start,
               period_end: period_end,
               test_count: group.size,
@@ -95,18 +97,19 @@ module Checker
 
           next if aggregates.empty?
 
-          # Group by hour
+          # Group by test_type and hour
           grouped = aggregates.group_by do |m|
             time = m[:period_start]
-            Time.new(time.year, time.month, time.day, time.hour, 0, 0)
+            hour = Time.new(time.year, time.month, time.day, time.hour, 0, 0)
+            [m[:test_type], hour]
           end
 
-          grouped.each do |period_start, group|
+          grouped.each do |(test_type, period_start), group|
             period_end = period_start + (60 * 60)
 
             # Check if already aggregated
             existing = DB[:measurements_hourly]
-              .where(host_id: host.id, period_start: period_start)
+              .where(host_id: host.id, test_type: test_type, period_start: period_start)
               .first
 
             next if existing
@@ -122,6 +125,7 @@ module Checker
 
             DB[:measurements_hourly].insert(
               host_id: host.id,
+              test_type: test_type,
               period_start: period_start,
               period_end: period_end,
               test_count: total_tests,

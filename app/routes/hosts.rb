@@ -65,7 +65,7 @@ module Checker
 
         # Run immediate validation tests if requested
         if data[:validate_immediately]
-          config = build_test_config.merge(record_results: false)
+          config = Configuration.test_config.merge(record_results: false)
           validation_results = tests.map do |test|
             result = Testers.run_single(test, config)
             { test_id: test.id, test_type: test.test_type, result: result }
@@ -153,7 +153,7 @@ module Checker
 
         # Run immediate validation if requested
         if data[:validate_immediately]
-          config = build_test_config.merge(record_results: false)
+          config = Configuration.test_config.merge(record_results: false)
           validation_results = host.tests_dataset.all.map do |test|
             result = Testers.run_single(test, config)
             { test_id: test.id, test_type: test.test_type, result: result }
@@ -180,7 +180,7 @@ module Checker
       test = Test[params[:id].to_i]
       halt 404, json(error: 'Test not found') unless test
 
-      config = build_test_config.merge(record_results: false)
+      config = Configuration.test_config.merge(record_results: false)
       result = Testers.run_single(test, config)
       json(test_id: test.id, test_type: test.test_type, result: result)
     end
@@ -261,16 +261,5 @@ module Checker
       erb :host_detail
     end
 
-    private
-
-    def build_test_config
-      {
-        ping_count: (Configuration.get('ping_count') || 5).to_i,
-        ping_timeout: (Configuration.get('ping_timeout_seconds') || 5).to_i,
-        tcp_timeout: (Configuration.get('tcp_timeout_seconds') || 5).to_i,
-        http_timeout: (Configuration.get('http_timeout_seconds') || 10).to_i,
-        dns_timeout: (Configuration.get('dns_timeout_seconds') || 5).to_i
-      }
-    end
   end
 end

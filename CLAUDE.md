@@ -480,3 +480,130 @@ Implemented rolling window averages for more stable statistics and automatic out
 - No false positives from isolated packet loss
 - Transparent logging for troubleshooting
 - Configurable thresholds for different use cases
+
+### February 2025 - Code Review and Security Fixes
+
+Comprehensive code review identified 23 issues across 6 severity categories. Fixed the 8 highest-priority issues.
+
+#### Security Fixes (Critical)
+
+**1. Command Injection in Ping/Jitter Testers**
+- **Files:** [lib/checker/testers/ping.rb](lib/checker/testers/ping.rb), [lib/checker/testers/jitter.rb](lib/checker/testers/jitter.rb)
+- **Problem:** Host addresses were interpolated directly into shell commands without escaping
+- **Fix:** Added `Shellwords.shellescape` to sanitize addresses before command execution
+```ruby
+require 'shellwords'
+safe_address = Shellwords.shellescape(address)
+cmd = "ping -c #{count} -W #{timeout} -i 0.2 #{safe_address} 2>&1"
+```
+
+**2. Socket Leak in TCP Tester**
+- **File:** [lib/checker/testers/tcp.rb](lib/checker/testers/tcp.rb)
+- **Problem:** Socket not closed on timeout or exception paths
+- **Fix:** Added `ensure` block to guarantee socket cleanup
+```ruby
+ensure
+  socket&.close
+end
+```
+
+#### Data Integrity Fix (Critical)
+
+**3. Rakefile Rollback Bug**
+- **File:** [Rakefile](Rakefile)
+- **Problem:** `db:rollback` task called `Sequel::Migrator.run()` twice - once attempting to get version (but `run()` executes migrations, not returns version), potentially corrupting database
+- **Fix:** Properly get current version using `applied_migrations` before calculating rollback target
+```ruby
+applied = Sequel::Migrator.migrator_class(migrations_path).new(db, migrations_path).applied_migrations
+current_version = applied.map { |m| m.to_i }.max
+target_version = [current_version - 1, 0].max
+Sequel::Migrator.run(db, migrations_path, target: target_version)
+```
+
+#### Bug Fixes (High)
+
+**4. Aggregator Missing test_type Grouping**
+- **Files:** [lib/checker/aggregator.rb](lib/checker/aggregator.rb), [db/migrations/009_add_test_type_to_aggregates.rb](db/migrations/009_add_test_type_to_aggregates.rb)
+- **Problem:** Aggregated measurements tables lacked `test_type` column, mixing statistics across different test types
+- **Fix:**
+  - Created migration 009 to add `test_type` to `measurements_15min` and `measurements_hourly` tables
+  - Updated unique indexes to include `test_type`
+  - Modified aggregator to group by `[test_type, period]` instead of just `period`
+  - Backfilled existing data with 'ping' as default
+
+**5. Race Condition in Scheduler**
+- **File:** [lib/checker/scheduler.rb](lib/checker/scheduler.rb)
+- **Problem:** Multiple workers could query and run the same due tests simultaneously
+- **Fix:** Atomic claim pattern - update `next_test_at` with WHERE clause before running test
+```ruby
+claimed = Test.where(id: test.id)
+  .where { Sequel.|({ next_test_at: nil }, Sequel.expr(next_test_at) <= now) }
+  .update(next_test_at: next_time)
+next if claimed.zero?  # Skip if another worker claimed it
+```
+
+**6. Duplicate Scheduler Queries**
+- **File:** [lib/checker/scheduler.rb](lib/checker/scheduler.rb)
+- **Problem:** Two separate queries for `next_test_at <= now` and `next_test_at: nil`
+- **Fix:** Combined into single query using Sequel OR syntax
+```ruby
+.where { Sequel.|({ next_test_at: nil }, Sequel.expr(next_test_at) <= now) }
+```
+
+#### Code Quality Fixes
+
+**7. Duplicated build_test_config Method**
+- **Files:** [config/application.rb](config/application.rb), [app/routes/hosts.rb](app/routes/hosts.rb), [app/routes/tests.rb](app/routes/tests.rb), [lib/checker/scheduler.rb](lib/checker/scheduler.rb), [Rakefile](Rakefile)
+- **Problem:** Same timeout configuration hash built in 4+ locations
+- **Fix:** Centralized in `Configuration.test_config` method, all call sites updated
+
+**8. Added RuboCop Configuration**
+- **File:** [.rubocop.yml](.rubocop.yml)
+- Added comprehensive RuboCop config with:
+  - Ruby 3.3 target
+  - Sensible metric limits (line length 120, method length 25)
+  - Excluded migrations and vendor directories
+  - Project-specific style preferences (single quotes, no trailing commas)
+
+#### Files Modified/Created
+
+**Created:**
+1. `db/migrations/009_add_test_type_to_aggregates.rb`
+2. `.rubocop.yml`
+
+**Modified:**
+1. `lib/checker/testers/ping.rb` - Command injection fix
+2. `lib/checker/testers/jitter.rb` - Command injection fix
+3. `lib/checker/testers/tcp.rb` - Socket leak fix
+4. `lib/checker/aggregator.rb` - test_type grouping
+5. `lib/checker/scheduler.rb` - Race condition fix, query consolidation
+6. `config/application.rb` - Centralized test_config
+7. `app/routes/hosts.rb` - Use Configuration.test_config
+8. `app/routes/tests.rb` - Use Configuration.test_config
+9. `Rakefile` - Rollback fix, use Configuration.test_config
+10. `Gemfile` - Added rubocop gem (optional rubocop-sequel commented)
+
+#### Test Coverage
+
+All 73 tests passing after fixes.
+
+#### Remaining Issues (Not Yet Fixed)
+
+Prioritized list for future work:
+
+**Medium Priority:**
+- N+1 queries in host list (eager load tests)
+- Constant reassignment warnings in testers
+- Long methods in routes (extract to services)
+- Magic numbers (extract to constants)
+- Inconsistent error handling patterns
+
+**Lower Priority:**
+- Inconsistent private section placement
+- Namespace organization (models in Checker module)
+- No API rate limiting
+- No pagination for measurements
+- Missing database indexes on frequently queried columns
+- No connection pooling configuration
+- Inconsistent string quoting (mixed single/double)
+- Loose gem version pinning

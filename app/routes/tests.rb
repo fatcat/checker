@@ -4,7 +4,7 @@ module Checker
   class App
     # Run tests manually for all enabled hosts
     post '/api/tests/run' do
-      results = Testers.run_all(build_test_config)
+      results = Testers.run_all(Configuration.test_config)
       json results: results
     end
 
@@ -23,18 +23,6 @@ module Checker
         running: scheduler&.running? || false,
         test_interval: Configuration.test_interval
       )
-    end
-
-    private
-
-    def build_test_config
-      {
-        ping_count: (Configuration.get('ping_count') || 5).to_i,
-        ping_timeout: (Configuration.get('ping_timeout_seconds') || 5).to_i,
-        tcp_timeout: (Configuration.get('tcp_timeout_seconds') || 5).to_i,
-        http_timeout: (Configuration.get('http_timeout_seconds') || 10).to_i,
-        dns_timeout: (Configuration.get('dns_timeout_seconds') || 5).to_i
-      }
     end
   end
 end

@@ -42,6 +42,18 @@ module Checker
       def test_interval
         get('test_interval_seconds').to_i
       end
+
+      # Build configuration hash for testers
+      # Centralizes timeout configuration used by scheduler and routes
+      def test_config
+        {
+          ping_count: (get('ping_count') || 5).to_i,
+          ping_timeout: (get('ping_timeout_seconds') || 5).to_i,
+          tcp_timeout: (get('tcp_timeout_seconds') || 5).to_i,
+          http_timeout: (get('http_timeout_seconds') || 10).to_i,
+          dns_timeout: (get('dns_timeout_seconds') || 5).to_i
+        }
+      end
     end
   end
 end

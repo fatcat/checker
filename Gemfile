@@ -32,4 +32,5 @@ group :development, :test do
   gem 'minitest-reporters', '~> 1.6'
   gem 'rack-test', '~> 2.1'
   gem 'rubocop', '~> 1.50'
+  # Optional: gem 'rubocop-sequel', '~> 0.3'  # Uncomment and run bundle install for Sequel-specific cops
 end

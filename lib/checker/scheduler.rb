@@ -47,7 +47,7 @@ module Checker
       host = Host[host_id]
       return [] unless host&.enabled
 
-      config = build_test_config
+      config = Configuration.test_config
       base_interval = Configuration.test_interval
       results = []
 
@@ -103,19 +103,13 @@ module Checker
 
     def check_and_run_due_tests
       now = Time.now
-      config = build_test_config
+      config = Configuration.test_config
       base_interval = Configuration.test_interval
 
-      # Query: Get all enabled tests where next_test_at <= now
+      # Combined query: enabled tests for enabled hosts where next_test_at <= now OR next_test_at is null
       due_tests = Test.enabled
         .where(host_id: Host.enabled.select(:id))
-        .where { next_test_at <= now }
-        .all
-
-      # Include tests that have never been run
-      due_tests += Test.enabled
-        .where(host_id: Host.enabled.select(:id))
-        .where(next_test_at: nil)
+        .where { Sequel.|({ next_test_at: nil }, Sequel.expr(next_test_at) <= now) }
         .all
 
       return if due_tests.empty?
@@ -126,11 +120,18 @@ module Checker
         host = test.host
         next unless host # Safety check
 
+        # Atomic claim: update next_test_at before running to prevent race conditions
+        # Only proceed if we successfully claim this test (row was actually updated)
+        next_time = test.calculate_next_test_time(base_interval)
+        claimed = Test.where(id: test.id)
+          .where { Sequel.|({ next_test_at: nil }, Sequel.expr(next_test_at) <= now) }
+          .update(next_test_at: next_time)
+
+        # Skip if another worker already claimed this test
+        next if claimed.zero?
+
         result = Testers.run_single(test, config)
         results << { test: test, result: result }
-
-        # Calculate next test time with host's randomness
-        test.update(next_test_at: test.calculate_next_test_time(base_interval))
 
         log_test_result(host, test, result)
       end
@@ -143,7 +144,7 @@ module Checker
     end
 
     def perform_tests_for_all_hosts
-      config = build_test_config
+      config = Configuration.test_config
       base_interval = Configuration.test_interval
       results = []
 
@@ -174,16 +175,6 @@ module Checker
       Aggregator.run
     rescue StandardError => e
       Checker.logger.error "Error running aggregation: #{e.message}"
-    end
-
-    def build_test_config
-      {
-        ping_count: (Configuration.get('ping_count') || 5).to_i,
-        ping_timeout: (Configuration.get('ping_timeout_seconds') || 5).to_i,
-        tcp_timeout: (Configuration.get('tcp_timeout_seconds') || 5).to_i,
-        http_timeout: (Configuration.get('http_timeout_seconds') || 10).to_i,
-        dns_timeout: (Configuration.get('dns_timeout_seconds') || 5).to_i
-      }
     end
 
     def log_test_result(host, test, result, indent: false)

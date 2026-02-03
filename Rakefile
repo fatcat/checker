@@ -28,9 +28,18 @@ namespace :db do
     db = Sequel.sqlite(db_path)
 
     migrations_path = File.expand_path('db/migrations', __dir__)
-    Sequel::Migrator.run(db, migrations_path, target: Sequel::Migrator.run(db, migrations_path) - 1)
 
-    puts "Rolled back one migration"
+    # Get applied migrations to calculate target version
+    applied = Sequel::Migrator.migrator_class(migrations_path).new(db, migrations_path).applied_migrations
+    if applied.empty?
+      puts "No migrations to rollback"
+    else
+      # Calculate target: current version minus 1
+      current_version = applied.map { |m| m.to_i }.max
+      target_version = [current_version - 1, 0].max
+      Sequel::Migrator.run(db, migrations_path, target: target_version)
+      puts "Rolled back from version #{current_version} to #{target_version}"
+    end
   end
 
   desc 'Reset the database'
@@ -124,15 +133,7 @@ namespace :tests do
     Dir['./app/models/*.rb'].each { |f| require f }
     require_relative 'lib/checker'
 
-    config = {
-      ping_count: (Checker::Configuration.get('ping_count') || 5).to_i,
-      ping_timeout: (Checker::Configuration.get('ping_timeout_seconds') || 5).to_i,
-      tcp_timeout: (Checker::Configuration.get('tcp_timeout_seconds') || 5).to_i,
-      http_timeout: (Checker::Configuration.get('http_timeout_seconds') || 10).to_i,
-      dns_timeout: (Checker::Configuration.get('dns_timeout_seconds') || 5).to_i
-    }
-
-    results = Checker::Testers.run_all(config)
+    results = Checker::Testers.run_all(Checker::Configuration.test_config)
 
     results.each do |r|
       status = r[:result][:reachable] ? 'UP' : 'DOWN'

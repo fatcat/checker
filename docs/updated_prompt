@@ -6,7 +6,7 @@ Create a self-hosted network monitoring web application that tests host availabi
 - **Backend**: Ruby 3.3+ with Sinatra 4.x
 - **Database**: SQLite3 with Sequel ORM
 - **Server**: Puma
-- **Frontend**: ERB templates, vanilla JavaScript, Chart.js for visualizations
+- **Frontend**: ERB templates, vanilla JavaScript, Chart.js
 - **Scheduler**: rufus-scheduler for background tasks
 - **Deployment**: Docker with docker-compose
 
@@ -14,134 +14,136 @@ Create a self-hosted network monitoring web application that tests host availabi
 
 ### 1. Host Management
 - CRUD operations for network hosts (name, IP/hostname, enabled status)
-- Each host supports multiple test types:
-  - **Ping (ICMP)**: Single ping measures latency only
-  - **TCP**: Port connectivity testing, measures latency
-  - **HTTP/HTTPS**: Web endpoint monitoring with status codes, measures latency
-  - **DNS**: DNS resolution testing, measures latency
-  - **Jitter**: Optional per-host IPDV calculation (RFC 3393) using 5 ICMP pings with 0.2s interval, independent from ping latency test
-- Randomness setting (0-50%) to vary test timing and prevent synchronized testing
-- Per-host jitter toggle (checkbox) to enable/disable jitter testing independently
+- Multiple test types per host:
+  - **Ping (ICMP)**: Single ping, latency only
+  - **TCP**: Port connectivity, latency
+  - **HTTP/HTTPS**: Endpoint monitoring with status codes
+  - **DNS**: Resolution testing
+  - **Jitter**: Optional IPDV calculation (RFC 3393) using 5 pings with 0.2s interval
+- Randomness setting (0-50%) to vary test timing
+- Per-host jitter toggle independent from ping latency
 
 ### 2. Automated Testing
-- Background scheduler runs tests at configurable intervals (default: 5 minutes)
+- Background scheduler at configurable intervals (default: 5 min)
 - Per-test scheduling with independent `next_test_at` timestamps
-- Includes a variability factor so that tests do not begin all at the same time. The time interval to the next test should be recalculated each time a test is run. The variability is in terms of percent, so that a 5% variability factor on a 5 minute base timer would alter the base timer randomly by up to +-15 seconds
-- Store measurements: timestamp, test type, reachable (boolean), latency_ms, http_status, jitter
-- **Outlier Detection & Automatic Retesting**:
-  - Detects results significantly worse than rolling baseline (last 50 measurements per test type)
-  - Result flagged as outlier if BOTH: 10× worse than average AND >500ms difference
-  - Automatically reruns test immediately when outlier detected
-  - If retest confirms (similar bad result), records original (real issue)
-  - If retest normal, records retest result (discards transient spike)
-  - Requires minimum 5 historical measurements for baseline
-  - Logs all outlier detection events for troubleshooting
+- Variability factor recalculated each test (e.g., 5% on 5min = ±15s)
+- **Race Condition Prevention**: Atomic claim pattern—update `next_test_at` with WHERE clause before running, skip if another worker claimed
+- **Outlier Detection**:
+  - Flags results 10× worse than baseline AND >500ms difference
+  - Baseline from last 50 measurements per test type (minimum 5 required)
+  - Auto-retests outliers; records retest if normal, original if confirmed
+  - Uses `record_results: false` for retests to prevent loops
 
 ### 3. Dashboard & Visualization
-- Real-time status overview showing all hosts and their current state
-- **Rolling Window Statistics** (per host):
-  - Last 50 measurements per test type (independent windows)
-  - Display: Uptime %, Avg/Min/Max Latency, Avg Jitter, Total Tests
-  - Statistics independent of time range selector
-- Interactive charts using Chart.js:
-  - Latency over time (per host and grouped by test type)
-  - Jitter trends for jitter measurements
-  - Reachability heatmaps
-- Time range selector for charts: 1h, 6h, 24h, 7d, 30d, custom range
-- Color-coded status indicators (up/down/degraded/never tested)
+- Real-time status overview with color-coded indicators
+- **Rolling Window Statistics**: Last 50 measurements per test type (independent windows)
+- Charts via Chart.js: latency trends, jitter trends, reachability
+- Time range selector: 1h, 6h, 24h, 7d, 30d, custom
+- Statistics independent of time range (rolling vs historical)
 
-### 4. Settings Management
-- Configurable test intervals
-- Timeout settings per test type (HTTP: 10s, TCP: 5s, Ping: 5s, DNS: 5s)
-- Ping count (default: 5 packets for jitter calculation)
-- Data retention period (default: 14 days)
-- Theme selection (provide at least 3 dark and 3 light themes)
-- Configurable data aggregation for raw measurements and aggregated measurements with a maximum one-year of retention
-- **Outlier Detection Settings**:
-  - Enable/disable automatic retesting (default: enabled)
-  - Threshold multiplier (default: 10× worse than baseline)
-  - Minimum threshold in ms (default: 500ms difference required)
+### 4. Settings
+- Test intervals and timeouts per type (HTTP: 10s, TCP/Ping/DNS: 5s)
+- Data retention periods (raw: 14d, 15min aggregates: 30d, hourly: 1 year)
+- Theme selection (3+ dark, 3+ light themes via YAML)
+- Outlier detection toggles and thresholds
 
 ### 5. Data Model
-
+- **hosts**: id, name, address, enabled, randomness_percent, jitter_enabled, timestamps
+- **tests**: id, host_id, test_type, enabled, port, http_scheme, dns_query_hostname, next_test_at, timestamps
+- **measurements**: id, host_id, test_type, tested_at, reachable, latency_ms, jitter_ms, http_status, error
+- **measurements_15min/hourly**: id, host_id, test_type, period_start/end, test_count, success_count, avg/min/max_latency_ms, avg_jitter_ms
+- **settings**: key, value, timestamps
 
 ## Implementation Requirements
 
 ### Project Structure
-Follow Ruby conventions:
-- `bin/` directory with helper scripts (console, setup, server, test)
-- `app/` for models, routes, and views
-- `lib/checker/` for core logic (testers, scheduler, logger)
-- `db/migrations/` for Sequel migrations
-- `test/` with Minitest test suite
-- `config/` for application and database setup
-- `.ruby-version` file
+```
+app/models/          # Sequel models
+app/routes/          # Sinatra route files
+app/views/           # ERB templates
+bin/                 # Helper scripts (console, setup, server, test)
+config/              # Application and database config
+db/migrations/       # Sequel migrations
+lib/checker/testers/ # Test implementations
+lib/checker/         # Scheduler, aggregator, logger
+test/                # Minitest suite
+themes/              # YAML theme definitions
+public/              # Static assets
+```
+
+### Security Requirements
+- **Command Injection Prevention**: Use `Shellwords.shellescape` for any shell commands (ping addresses)
+- **Resource Cleanup**: Socket operations must use `ensure` blocks for cleanup
+- **Input Validation**: Validate addresses, ports, test types in models
 
 ### API Endpoints
-- `GET/POST/PUT/DELETE /api/hosts` - Host CRUD
-- `GET /api/hosts/status` - Current status of all hosts
-- `GET /api/hosts/:id/stats` - Rolling window statistics (last 50 per test type)
-- `GET /api/measurements/host/:id` - Measurements for a host
-- `GET /api/measurements/latency` - Latency time series
-- `GET /api/measurements/jitter` - Jitter time series
-- `POST /api/tests/run/:id` - Trigger immediate test
-- `POST /api/hosts/:id/run` - Trigger all tests for a host
+- `GET/POST/PUT/DELETE /api/hosts` - Host CRUD with nested tests
+- `GET /api/hosts/:id/stats` - Rolling window statistics
+- `GET /api/measurements/host/:id` - Measurements with time range
+- `POST /api/tests/:id/run` - Trigger single test
+- `POST /api/hosts/:id/run` - Trigger all tests for host
 - `GET/PUT /api/settings` - Settings management
 - `GET /health` - Health check
 
-### Test Implementation
-Each test type should:
-- Implement timeout handling
-- Return: `{reachable: boolean, latency_ms: float, jitter_ms: float|nil, http_status: int|nil}`
-- Use native Ruby libraries where possible (Resolv for DNS, Net::HTTP, native ping via Open3)
-- Handle errors gracefully and mark host as unreachable on failure
-- **Outlier Detection Integration**:
-  - Base tester class handles outlier detection before recording results
-  - Queries last 50 measurements for the specific test type to calculate baseline
-  - Automatically creates new tester instance with `record_results: false` for retesting
-  - Compares retest result to original (within 50% = confirmed, otherwise transient)
-  - All detection logic in base class, transparent to individual test implementations
+### Test Implementation Pattern
+```ruby
+class BaseTester
+  def test
+    result = perform_test
+    result = handle_outlier_detection(result) if should_record?
+    record_result(result) if should_record?
+    result
+  end
+end
+```
+Return format: `{reachable: bool, latency_ms: float, jitter_ms: float|nil, http_status: int|nil, error: string|nil}`
+
+### Scheduler Pattern
+```ruby
+# Atomic claim to prevent race conditions
+claimed = Test.where(id: test.id)
+  .where { Sequel.|({ next_test_at: nil }, Sequel.expr(next_test_at) <= now) }
+  .update(next_test_at: next_time)
+next if claimed.zero?
+# Now safe to run test
+```
+
+### Configuration Pattern
+Centralize timeout configs in one place:
+```ruby
+def test_config
+  { ping_count: 5, ping_timeout: 5, tcp_timeout: 5, http_timeout: 10, dns_timeout: 5 }
+end
+```
+
+### Aggregation
+- Group by `[host_id, test_type, period]` not just `[host_id, period]`
+- 15-min aggregates from raw data older than retention
+- Hourly aggregates from 15-min data older than retention
+- Cleanup hourly data older than 1 year
 
 ### Docker Setup
-- Multi-stage Dockerfile using `ruby:3.3-slim`
-- Requires `NET_RAW` capability for ICMP ping
-- Data persistence via `/data` volume for database and logs
-- Non-root user for security
-- Environment variables for configuration
+- Multi-stage Dockerfile using `ruby:3.3-slim` (not Alpine—musl/glibc issues with sqlite3)
+- Requires `NET_RAW` capability for ICMP
+- Data persistence via `/data` volume
+- Non-root user (checker, UID 1000)
 
-## Nice-to-Haves
-- Rotating log files with size limits
-- Status calculation (success/degraded/failure based on recent measurements)
-- Immediate test validation when adding/editing hosts
-- Responsive design for mobile viewing
-- Comprehensive test suite with models, integration, and tester tests
-
-## Key Architecture Decisions
-
-### Statistics & Measurements
-- **Rolling Windows**: Each test type maintains independent 50-measurement history for statistics
-- **Stats vs Charts**: Statistics use rolling windows (stable), charts use time ranges (historical)
-- **Per-Test-Type Tracking**: Prevents fast-running tests from dominating averages
-- **Jitter Independence**: Jitter is a separate test type, not a ping modifier
-
-### Outlier Detection
-- **Simple Threshold-Based**: Uses multiplier (10×) + minimum difference (500ms), not statistical methods
-- **Baseline Calculation**: Last 50 measurements per test type
-- **Retest Confirmation**: Similar result = real issue, different result = transient spike
-- **No Infinite Loops**: Uses `record_results: false` flag for retests
-
-### Data Lifecycle
-1. Raw measurements: Kept for 14 days (configurable)
-2. 15-minute aggregates: Kept for 30 days (configurable)
-3. Hourly aggregates: Kept for 1 year (hard-coded)
-4. Steady-state size: ~50MB for 10 tests running continuously
+### Rake Tasks
+- `db:migrate` - Run migrations
+- `db:rollback` - Rollback one migration (use `applied_migrations` to get current version, not `run()`)
+- `db:seed` - Sample data
+- `test` - Run Minitest suite
 
 ## Constraints
-- Keep dependencies minimal (avoid Rails, use Sinatra)
-- Prioritize simplicity over features
-- All testers should complete within their timeout periods
-- Database should handle concurrent scheduler and API access
-- Themes should be YAML-based and hot-swappable
+- Keep dependencies minimal (Sinatra, not Rails)
+- All testers complete within timeout periods
+- Handle concurrent scheduler and API access
+- Use RuboCop with sensible defaults (line length 120, exclude migrations)
 
-Please create a working application with migrations, seed data, documentation, and a comprehensive README.
+## Data Lifecycle
+1. Raw → 14 days → aggregated to 15-min
+2. 15-min → 30 days → aggregated to hourly
+3. Hourly → 1 year → deleted
+4. Steady-state: ~50MB for 10 tests running continuously
 
+Create a working application with migrations, seed data, and comprehensive README.
