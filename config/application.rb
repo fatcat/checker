@@ -15,8 +15,7 @@ module Checker
       'log_retention_count' => 12,           # Number of log files to keep
       'theme' => 'dark-default',             # Current theme ID
       'outlier_detection_enabled' => true,   # Retest outlier results
-      'outlier_threshold_multiplier' => 10,  # Result must be this many times worse than average
-      'outlier_min_threshold_ms' => 500      # Minimum difference in ms to be considered an outlier
+      'outlier_threshold_multiplier' => 5    # Result must exceed median × this multiplier
     }.freeze
 
     class << self

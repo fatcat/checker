@@ -28,9 +28,10 @@ Create a self-hosted network monitoring web application that tests host availabi
 - Per-test scheduling with independent `next_test_at` timestamps
 - Variability factor recalculated each test (e.g., 5% on 5min = ±15s)
 - **Race Condition Prevention**: Atomic claim pattern—update `next_test_at` with WHERE clause before running, skip if another worker claimed
-- **Outlier Detection**:
-  - Flags results 10× worse than baseline AND >500ms difference
-  - Baseline from last 50 measurements per test type (minimum 5 required)
+- **Outlier Detection** (user-configurable in Settings UI):
+  - Flags results exceeding baseline median × threshold multiplier (default 5×)
+  - Median-based calculation is robust against existing outliers in baseline
+  - Baseline from last 50 measurements per host and test type (minimum 5 required)
   - Auto-retests outliers; records retest if normal, original if confirmed
   - Uses `record_results: false` for retests to prevent loops
 

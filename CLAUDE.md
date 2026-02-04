@@ -607,3 +607,73 @@ Prioritized list for future work:
 - No connection pooling configuration
 - Inconsistent string quoting (mixed single/double)
 - Loose gem version pinning
+
+### February 2025 - Outlier Detection Improvements
+
+Reviewed and improved the outlier detection feature with simplified, proportional logic.
+
+#### Changes Made
+
+**1. Simplified to Median-Based Proportional Detection**
+- **File:** [lib/checker/testers/base.rb](lib/checker/testers/base.rb)
+- Replaced mean-based calculation with **median** (more robust against existing outliers in baseline)
+- Removed fixed minimum threshold (500ms) which was inappropriate for low-latency tests
+- New logic: `outlier if value > median × multiplier` (single condition)
+- Added `calculate_median` helper method
+
+**2. Adjusted Default Threshold Multiplier**
+- **File:** [config/application.rb](config/application.rb)
+- Changed `outlier_threshold_multiplier` default from 10× to 5×
+- Removed `outlier_min_threshold_ms` setting entirely
+
+**3. Added Outlier Detection Settings to UI**
+- **File:** [app/views/settings.erb](app/views/settings.erb)
+- New "Outlier Detection" section in Settings page with:
+  - Enable/disable checkbox (`outlier_detection_enabled`)
+  - Threshold multiplier input (`outlier_threshold_multiplier`, default 5×)
+- Explanatory info box describing median-based detection
+- Removed minimum threshold field (no longer applicable)
+
+**4. Added Comprehensive Test Coverage**
+- **File:** [test/lib/testers/test_outlier_detection.rb](test/lib/testers/test_outlier_detection.rb) (new)
+- 16 tests covering:
+  - `calculate_median` helper (odd/even counts)
+  - `is_outlier?` method with various edge cases
+  - Test confirming median is used (not mean)
+  - `retest_confirms_outlier?` method logic
+  - Jitter test type handling
+  - Settings enable/disable behavior
+  - `record_results: false` flag preventing loops
+
+#### Outlier Detection Logic
+
+A result is flagged as a potential outlier when:
+- Current value > baseline **median** × multiplier (default 5×)
+
+**Why median instead of mean:**
+- Median is robust against existing outliers in the baseline
+- Mean can be skewed by a few high values, making detection unreliable
+
+**Why no minimum threshold:**
+- Fixed threshold (e.g., 500ms) was inappropriate for low-latency tests (ping, TCP)
+- Proportional detection automatically scales to each test's typical values
+- The retest mechanism handles false positives from measurement noise
+
+Requires at least 5 historical samples to establish baseline. When flagged:
+- Immediate retest with `record_results: false` (prevents recursion)
+- If retest within 50% of original → confirms real issue → record original
+- If retest much better → transient spike → record retest values
+
+#### Files Modified/Created
+
+**Created:**
+1. `test/lib/testers/test_outlier_detection.rb` - 16 new tests
+
+**Modified:**
+1. `lib/checker/testers/base.rb` - Switched to median, removed min threshold, added calculate_median
+2. `config/application.rb` - Changed default multiplier to 5, removed min_threshold setting
+3. `app/views/settings.erb` - Updated UI, removed min threshold field
+
+#### Test Coverage
+
+Total tests now: 89 (73 existing + 16 new outlier detection tests)

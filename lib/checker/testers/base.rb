@@ -85,7 +85,7 @@ module Checker
 
         return false if recent.empty? || recent.size < 5  # Need at least 5 samples
 
-        # Get baseline average
+        # Get values based on test type
         if test.test_type == 'jitter'
           values = recent.map { |m| m[:jitter_ms] }.compact
           current_value = jitter_ms
@@ -96,15 +96,24 @@ module Checker
 
         return false if values.empty? || current_value.nil?
 
-        baseline_avg = values.sum / values.size.to_f
+        # Calculate median (more robust than mean against existing outliers)
+        baseline_median = calculate_median(values)
 
-        # Get thresholds from config
+        # Get threshold multiplier from config
         multiplier = Configuration.get('outlier_threshold_multiplier').to_f
-        min_diff_ms = Configuration.get('outlier_min_threshold_ms').to_f
 
-        # Check if current value is an outlier
-        diff = current_value - baseline_avg
-        diff > min_diff_ms && current_value > (baseline_avg * multiplier)
+        # Check if current value exceeds threshold
+        current_value > (baseline_median * multiplier)
+      end
+
+      def calculate_median(values)
+        sorted = values.sort
+        mid = sorted.size / 2
+        if sorted.size.odd?
+          sorted[mid]
+        else
+          (sorted[mid - 1] + sorted[mid]) / 2.0
+        end
       end
 
       def retest_confirms_outlier?(original_latency, original_jitter, retest_result)

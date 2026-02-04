@@ -1,8 +1,22 @@
 <div class="settings-page">
   <h1>Settings</h1>
 
+  <nav class="settings-nav">
+    <div class="settings-nav-links">
+      <a href="#appearance">Appearance</a>
+      <a href="#logging">Logging</a>
+      <a href="#testing">Testing</a>
+      <a href="#outlier">Outlier Detection</a>
+      <a href="#retention">Data Retention</a>
+    </div>
+    <div class="settings-nav-actions">
+      <button type="submit" form="settings-form" class="btn btn-primary btn-sm">Save</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="Settings.loadSettings()">Reset</button>
+    </div>
+  </nav>
+
   <form id="settings-form" class="settings-form">
-    <section class="settings-section">
+    <section class="settings-section" id="appearance">
       <h2>Appearance</h2>
 
       <div class="form-group">
@@ -31,7 +45,7 @@
       </div>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section" id="logging">
       <h2>Logging</h2>
 
       <div class="form-group">
@@ -50,7 +64,7 @@
       </div>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section" id="testing">
       <h2>Testing</h2>
 
       <div class="form-group">
@@ -90,7 +104,35 @@
       </div>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section" id="outlier">
+      <h2>Outlier Detection</h2>
+
+      <div class="form-group toggle-group">
+        <label class="toggle-row" for="outlier_detection_enabled">
+          <span class="toggle-label">Enable Outlier Detection</span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="outlier_detection_enabled">
+            <span class="toggle-slider"></span>
+          </span>
+        </label>
+        <small class="form-hint">Automatically retest when a result appears to be an outlier. If retest shows normal values, the outlier is discarded.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="outlier_threshold_multiplier">Threshold Multiplier</label>
+        <input type="number" id="outlier_threshold_multiplier" min="2" max="20" step="1">
+        <small class="form-hint">A result must exceed the baseline median × this multiplier to be flagged as an outlier (default: 5×)</small>
+      </div>
+
+      <div class="outlier-info">
+        <strong>How it works:</strong>
+        A result is flagged as a potential outlier when it exceeds the baseline median × multiplier.
+        The median is calculated from the last 50 measurements for each host and test type combination, making it robust against existing outliers and tailored to each host's typical performance.
+        When flagged, the test is immediately re-run. If the retest shows normal values, the outlier reading is discarded. If the retest confirms the issue, the original result is recorded.
+      </div>
+    </section>
+
+    <section class="settings-section" id="retention">
       <h2>Data Retention</h2>
 
       <div class="form-group">
@@ -114,15 +156,70 @@
         </ul>
       </div>
     </section>
-
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">Save Settings</button>
-      <button type="button" class="btn btn-secondary" onclick="Settings.loadSettings()">Reset</button>
-    </div>
   </form>
 </div>
 
 <style>
+html {
+  scroll-behavior: smooth;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--color-background);
+  padding: 0.75rem 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.settings-nav-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.settings-nav-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.settings-nav-actions .btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background-color: var(--color-border);
+}
+
+.settings-nav a {
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--border-radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-nav a:hover {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.settings-nav a.active {
+  background-color: var(--color-accent);
+  color: white;
+}
+
 .settings-form {
   max-width: 700px;
 }
@@ -131,6 +228,7 @@
   margin-bottom: 2.5rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--color-border);
+  scroll-margin-top: 60px;
 }
 
 .settings-section:last-of-type {
@@ -148,12 +246,6 @@
   color: var(--color-text-muted);
   font-size: 0.85rem;
   margin-top: 0.25rem;
-}
-
-.form-actions {
-  margin-top: 2rem;
-  display: flex;
-  gap: 1rem;
 }
 
 .theme-preview {
@@ -249,18 +341,182 @@
 .retention-info li:last-child {
   margin-bottom: 0;
 }
+
+.outlier-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-size: 0.9rem;
+}
+
+.outlier-info strong {
+  color: var(--color-text);
+}
+
+.outlier-info ul {
+  margin: 0.75rem 0 0 0;
+  padding-left: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.outlier-info li {
+  margin-bottom: 0.5rem;
+}
+
+.outlier-info li:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label input[type="checkbox"] {
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+/* Toggle switch styles */
+.toggle-group {
+  margin-bottom: 1rem;
+}
+
+.toggle-row {
+  display: flex !important;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+.toggle-row .toggle-label {
+  font-weight: 500;
+  color: var(--color-text);
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0;
+  display: inline;
+  font-size: 1rem;
+  line-height: 1.5;
+  box-shadow: none !important;
+}
+
+span.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-border);
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--color-background);
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--color-success);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
 </style>
 
 <script>
 const Settings = {
   settings: {},
   themes: [],
+  hasChanges: false,
 
   init() {
     this.loadThemes();
     this.loadSettings();
+    this.setupNavHighlighting();
+    this.setupChangeTracking();
     document.getElementById('settings-form').addEventListener('submit', (e) => this.saveSettings(e));
     document.getElementById('theme').addEventListener('change', (e) => this.previewTheme(e.target.value));
+  },
+
+  setupChangeTracking() {
+    const form = document.getElementById('settings-form');
+    form.addEventListener('change', () => this.markChanged());
+    form.addEventListener('input', () => this.markChanged());
+    this.updateSaveButton();
+  },
+
+  markChanged() {
+    this.hasChanges = true;
+    this.updateSaveButton();
+  },
+
+  updateSaveButton() {
+    const saveBtn = document.querySelector('.settings-nav-actions button[type="submit"]');
+    if (saveBtn) {
+      saveBtn.disabled = !this.hasChanges;
+    }
+  },
+
+  setupNavHighlighting() {
+    const sections = document.querySelectorAll('.settings-section[id]');
+    const navLinks = document.querySelectorAll('.settings-nav a');
+
+    const updateActiveSection = () => {
+      const scrollPos = window.scrollY + 80; // offset for sticky nav
+
+      // Check if at bottom first
+      const scrolledToBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 50);
+      if (scrolledToBottom) {
+        navLinks.forEach(link => link.classList.remove('active'));
+        navLinks[navLinks.length - 1].classList.add('active');
+        return;
+      }
+
+      // Find which section we're in (last section whose top is above scroll position)
+      let currentSection = sections[0];
+      sections.forEach(section => {
+        if (section.offsetTop <= scrollPos) {
+          currentSection = section;
+        }
+      });
+
+      navLinks.forEach(link => link.classList.remove('active'));
+      const activeLink = document.querySelector(`.settings-nav a[href="#${currentSection.id}"]`);
+      if (activeLink) activeLink.classList.add('active');
+    };
+
+    window.addEventListener('scroll', updateActiveSection);
+    updateActiveSection(); // Initial highlight
   },
 
   async loadThemes() {
@@ -314,7 +570,8 @@ const Settings = {
       'ping_timeout_seconds',
       'log_rotation_period',
       'log_retention_count',
-      'theme'
+      'theme',
+      'outlier_threshold_multiplier'
     ];
 
     fields.forEach(field => {
@@ -324,10 +581,20 @@ const Settings = {
       }
     });
 
+    // Handle checkbox for outlier detection
+    const outlierCheckbox = document.getElementById('outlier_detection_enabled');
+    if (outlierCheckbox && this.settings.outlier_detection_enabled !== undefined) {
+      outlierCheckbox.checked = this.settings.outlier_detection_enabled === 'true' || this.settings.outlier_detection_enabled === true;
+    }
+
     // Update theme preview
     if (this.settings.theme) {
       this.previewTheme(this.settings.theme);
     }
+
+    // Reset change tracking after populating
+    this.hasChanges = false;
+    this.updateSaveButton();
   },
 
   async previewTheme(themeId) {
@@ -384,7 +651,9 @@ const Settings = {
       ping_timeout_seconds: document.getElementById('ping_timeout_seconds').value,
       log_rotation_period: document.getElementById('log_rotation_period').value,
       log_retention_count: document.getElementById('log_retention_count').value,
-      theme: document.getElementById('theme').value
+      theme: document.getElementById('theme').value,
+      outlier_detection_enabled: document.getElementById('outlier_detection_enabled').checked,
+      outlier_threshold_multiplier: document.getElementById('outlier_threshold_multiplier').value
     };
 
     try {
@@ -402,6 +671,10 @@ const Settings = {
         if (window.ThemeManager) {
           window.ThemeManager.applyTheme(data.theme);
         }
+
+        // Reset change tracking
+        this.hasChanges = false;
+        this.updateSaveButton();
 
         alert('Settings saved successfully');
       } else {
